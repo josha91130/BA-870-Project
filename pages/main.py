@@ -3,7 +3,7 @@ import pandas as pd
 import yfinance as yf
 
 st.title("Predicting S&P 500 ETF Volume using VIX and macro data")
-st.header("Modified Jones Model App")
+st.header("Modified Jones")
 st.subheader("What, How, Why?")
 
 st.markdown(''' :red[What?]''')
