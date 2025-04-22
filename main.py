@@ -11,7 +11,6 @@ st.write("This App trains a version of the <Modified Jones Model> using data fro
 st.write("regular association between operations and accruals. Abnormal accruals are the residuals (e)")
 st.write("from the model below:")
 
-st.image("pages/files/model.png", caption="The model of normal accruals: Performance Matched Modified Jones Model")
 
 st.markdown(''' :red[Why?]''')
 st.write("The <Modified Jones Model> of accruals can be used to forecast normal accruals for a stock.")
