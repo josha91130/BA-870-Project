@@ -20,12 +20,7 @@ st.write("Using the following code on GitHub, we can find manipulated accruals f
 st.divider()
 
 st.subheader("Streamlit Python Code for this page:")
-# with open('pages/main.py', 'r') as file:
-#     code = file.read()
-#     st.code(code, language='python')
-if os.path.exists('pages/main.py'):
-    with open('pages/main.py', 'r') as f:
-        code = f.read()
-        st.code(code, language='python')
-else:
-    st.warning("pages/main.py not found yet.")
+with open('pages/main.py', 'r') as file:
+    code = file.read()
+    st.code(code, language='python')
+
