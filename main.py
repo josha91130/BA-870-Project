@@ -24,8 +24,8 @@ st.subheader("Streamlit Python Code for this page:")
 #     code = file.read()
 #     st.code(code, language='python')
 if os.path.exists('pages/main.py'):
-    with open('pages/main.py', 'r') as file:
-        code = file.read()
+    with open('pages/main.py', 'r') as f:
+        code = f.read()
         st.code(code, language='python')
 else:
-    st.warning('pages/main.py not found yet.')
+    st.warning("pages/main.py not found yet.")
