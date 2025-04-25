@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
+import os
 
 st.title("Predicting S&P 500 ETF Volume using VIX and macro data")
 st.header("Modified Jones")
