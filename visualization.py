@@ -28,3 +28,6 @@ def plot_predictions(etf_name):
 
     except Exception as e:
         st.error(f"Error loading or plotting {etf_name}: {e}")
+
+with open('requirements.txt', 'a') as f:
+    f.write('\nmatplotlib\n')
