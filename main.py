@@ -3,24 +3,44 @@ import pandas as pd
 import yfinance as yf
 import os
 
-st.title("Predicting S&P 500 ETF Volume using VIX and macro data")
-st.header("Modified Jones")
-st.subheader("What, How, Why?")
+# --- Title ---
+st.set_page_config(page_title="Predicting Trading Volumes", layout="wide")
+st.title("Predicting Trading Volumes with Market Sentiment and Macroeconomic Indicators")
 
-st.markdown(''' :red[What?]''')
-st.write("This App trains a version of the <Modified Jones Model> using data from Compustat to determine the")
-st.write("regular association between operations and accruals. Abnormal accruals are the residuals (e)")
-st.write("from the model below:")
+# --- Content ---
+st.write("""
+Trading volume is a key reflection of market participation and liquidity, both of which are essential for efficient pricing and investment decision-making.
 
+In this project, we explore how market sentiment and macroeconomic signals jointly influence trading activity, focusing specifically on predicting the trading volume of SPY, the world's largest S&P 500 ETF.
+""")
 
-st.markdown(''' :red[How?]''')
-st.write("Using the following code on GitHub, we can find manipulated accruals for a stock ...")
+st.markdown("---")
 
+st.subheader("Importance of Predicting Trading Volume")
+st.write("""
+Understanding and predicting trading volume is critical for both investors and market makers:
+- High volume periods are typically associated with higher liquidity, lower transaction costs, and more efficient price discovery.
+- Sudden shifts in volume often signal changes in market sentiment and can foreshadow increased volatility or directional market moves.
+""")
 
-st.divider()
+st.markdown("---")
 
-st.subheader("Streamlit Python Code for this page:")
-with open('pages/1_Info.py', 'r') as file:
-    code = file.read()
-    st.code(code, language='python')
+st.subheader("Indicators Incorporated in the Model")
+st.write("""
+Our approach incorporates multiple types of indicators:
+- **Market Sentiment Measures** such as the VIX (volatility index) and the trading activity of leveraged ETFs like **SSO (2x S&P500)** and **UPRO (3x S&P500)**.
+- **Macroeconomic Variables** such as Nonfarm Payrolls, ISM Manufacturing PMI, CPI, Housing Starts, Jobless Claims, and Industrial Production.
+""")
+
+st.markdown("---")
+
+st.subheader("Modeling Approach")
+st.write("""
+By developing models that can anticipate these volume changes, we contribute to better risk management, improved trading strategies, and more informed portfolio decisions.
+
+We employ a combination of time-series modeling techniques, leveraging the data provided in the attached analysis, to capture the dynamics between sentiment, macroeconomic conditions, and market trading behavior.
+
+We specifically include the trading activity of leveraged ETFs (SSO and UPRO) to examine whether 2x and 3x leveraged products exhibit greater sensitivity to trading volume changes. 
+This approach allows us to assess whether leveraged market behavior provides earlier or stronger signals of shifts in overall market participation.
+""")
 
