@@ -6,6 +6,10 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta
 
+# Load Historical Data
+final_data_spy = pd.read_csv('historical/final_data_spy.csv')
+final_data_sso = pd.read_csv('historical/final_data_sso.csv')
+final_data_upro = pd.read_csv('historical/final_data_upro.csv')
 # ── (A) MACRO SCRAPER ──
 urls = {
     "CPI": 'https://www.investing.com/economic-calendar/cpi-733',
