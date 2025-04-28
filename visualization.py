@@ -5,16 +5,16 @@ import streamlit as st
 
 def plot_predictions(etf_name):
     try:
-        # 讀對應資產的 validation 預測資料
+        # Read Prediction of Validation Sets for SPY, SSO, UPRO
         file_path = f"validation_preds/{etf_name}_validation_preds.csv"
         df = pd.read_csv(file_path)
 
-        # 讀取日期、實際值、預測值
+        # Load date, actual values, predicted values
         dates = pd.to_datetime(df['date'])
         actual = df['Actual']
         predicted = df['Predicted']
 
-        # 畫線圖
+        # Plot
         fig, ax = plt.subplots(figsize=(12, 4))
         ax.plot(dates, actual, label='Actual', linewidth=2)
         ax.plot(dates, predicted, label='Predicted', linewidth=2)
