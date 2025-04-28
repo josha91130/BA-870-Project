@@ -7,7 +7,7 @@ import numpy as np
 from datetime import timedelta
 
 # Load Historical Data
-final_data_spy = pd.read_csv('historical/final_data_spy.csv')
+final_data = pd.read_csv('historical/final_data_spy.csv')
 final_data_sso = pd.read_csv('historical/final_data_sso.csv')
 final_data_upro = pd.read_csv('historical/final_data_upro.csv')
 # ── (A) MACRO SCRAPER ──
