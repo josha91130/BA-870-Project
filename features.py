@@ -7,6 +7,11 @@ import numpy as np
 from datetime import timedelta
 
 # Load Historical Data
+cpi_yoy_final = pd.read_csv('historical/cpi_yoy_final.csv')
+nonfarm_final = pd.read_csv('historical/nonfarm_final.csv')
+ism_final = pd.read_csv('historical/ism_final.csv')
+jobless_claims_final = pd.read_csv('historical/jobless_claims_final.csv')
+housing_starts_final = pd.read_csv('historical/housing_starts_final.csv')
 final_data = pd.read_csv('historical/final_data_spy.csv')
 final_data_sso = pd.read_csv('historical/final_data_sso.csv')
 final_data_upro = pd.read_csv('historical/final_data_upro.csv')
