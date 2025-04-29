@@ -1,4 +1,4 @@
-# --- pages/4_Predict_Volume.py ---
+
 import streamlit as st
 import pandas as pd
 import pickle
@@ -6,21 +6,7 @@ import numpy as np
 import yfinance as yf
 from features import get_features_for_date
 
-st.set_page_config(page_title="Predict Volume", layout="wide")
-
-# --- Sidebar Navigation ---
-with st.sidebar:
-    st.markdown("## 📚 Start Here")
-    st.page_link("pages/0_Intro_to_App.py", label="Intro to the App")
-    st.page_link("pages/1_Info.py", label="Data Dictionary")
-
-    st.markdown("## 📈 Dashboard Options")
-    st.page_link("pages/2_Model_Visualization.py", label="Model Visualization")
-    st.page_link("pages/3_Get_Features.py", label="Get Features")
-    st.page_link("pages/4_Predict_Volume.py", label="Predict Volume")
-
-# --- Main Page Content ---
-st.title("📊 Predict SPY Trading Volume")
+st.title("Predict Trading Volume for a Specific Date")
 
 # Load models
 with open('models/best_model_spy.pkl', 'rb') as f:
@@ -32,6 +18,7 @@ with open('models/best_model_sso.pkl', 'rb') as f:
 with open('models/best_model_upro.pkl', 'rb') as f:
     model_upro = pickle.load(f)
 
+# 選日期
 target_date = st.date_input(
     "Select a date to predict trading volume",
     value=pd.to_datetime("2025-04-25"),
@@ -41,28 +28,44 @@ target_date = st.date_input(
 
 if st.button("Predict Volume"):
     with st.spinner('Predicting...'):
-        features = get_features_for_date(target_date.strftime("%Y-%m-%d"))
-        features = features.astype(float)
-
-        def get_lag_return(ticker, date_str):
-            start = pd.to_datetime(date_str) - pd.Timedelta(days=1)
-            end = pd.to_datetime(date_str) + pd.Timedelta(days=1)
-            prices = yf.download(ticker, start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)["Close"]
-            returns = np.log(prices).diff()
-            return returns.dropna().iloc[-1]
-
         date_str = target_date.strftime("%Y-%m-%d")
+
+        # --- 分別取得各資產的 features
+        features_spy = get_features_for_date(date_str, ticker="SPY")
+        features_sso = get_features_for_date(date_str, ticker="SSO")
+        features_upro = get_features_for_date(date_str, ticker="UPRO")
+
+        features_spy = features_spy.astype(float)
+        features_sso = features_sso.astype(float)
+        features_upro = features_upro.astype(float)
+
+        # --- 抓每個資產的 lag_return
+        # def get_lag_return(ticker, date_str):
+        #     start = pd.to_datetime(date_str) - pd.Timedelta(days=1)
+        #     end = pd.to_datetime(date_str) + pd.Timedelta(days=1)
+        #     prices = yf.download(ticker, start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)["Close"]
+        #     returns = np.log(prices).diff()
+        #     return returns.dropna().iloc[-1]
+        def get_lag_return(ticker, date_str, lookback_days=5):
+          dt = pd.to_datetime(date_str)
+          for delta in range(1, lookback_days+1):
+            start = dt - pd.Timedelta(days=delta)
+            end = dt + pd.Timedelta(days=1)
+            prices = yf.download(ticker, start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)["Close"]
+
+            returns = np.log(prices).diff()
+
+            if not returns.dropna().empty:
+              return returns.dropna().iloc[-1]
+
+        raise ValueError(f"Unable to find lag return for {ticker} on {date_str} even after looking back {lookback_days} days.")
+
         lag_return_spy = get_lag_return("SPY", date_str)
         lag_return_sso = get_lag_return("SSO", date_str)
         lag_return_upro = get_lag_return("UPRO", date_str)
 
-        features_spy = features.copy()
         features_spy["lag_return"] = lag_return_spy
-
-        features_sso = features.copy()
         features_sso["lag_return"] = lag_return_sso
-
-        features_upro = features.copy()
         features_upro["lag_return"] = lag_return_upro
 
         ml_features_clean = [
@@ -85,6 +88,7 @@ if st.button("Predict Volume"):
         pred_log_upro = model_upro.predict(X_upro)[0]
         pred_vol_upro = np.exp(pred_log_upro) - 1
 
+    # --- 顯示在三個Tab
     tab1, tab2, tab3 = st.tabs(["SPY", "SSO", "UPRO"])
 
     with tab1:
