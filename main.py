@@ -1,9 +1,9 @@
 import streamlit as st
 
-# --- 網頁設定 ---
+# --- Website setting---
 st.set_page_config(page_title="Trading Volume App", layout="wide")
 
-# --- Sidebar 自訂義導航 ---
+# --- Sidebar  ---
 with st.sidebar:
     st.header("📚 Start Here")
     st.page_link("pages/0_Intro_to_App.py", label="Intro to the App")
@@ -15,7 +15,7 @@ with st.sidebar:
     st.page_link("pages/3_Get_Features.py", label="2) Get Features")
     st.page_link("pages/4_Predict_Volume.py", label="3) Predict Volume")
 
-# --- Main Page 正式內容 ---
+# --- Main Page ---
 st.title("📚 Welcome to Trading Volume Prediction App")
 
 st.write("""
