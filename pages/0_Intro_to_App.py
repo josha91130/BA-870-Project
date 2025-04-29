@@ -1,5 +1,5 @@
 # --- pages/1_Intro_to_App.py ---
-# 📘 Project Introduction (完整保留你的介紹)
+# 📘 Project Introduction
 import streamlit as st
 
 st.set_page_config(page_title="Intro to the App", layout="wide")
