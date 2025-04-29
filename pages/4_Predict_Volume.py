@@ -94,7 +94,6 @@
 #         st.subheader("UPRO Prediction")
 #         st.metric(label="Predicted log(volume+1)", value=f"{pred_log_upro:.4f}")
 #         st.metric(label="Predicted volume", value=f"{pred_vol_upro:,.0f}")
-
 import streamlit as st
 import pandas as pd
 import pickle
@@ -103,7 +102,6 @@ import yfinance as yf
 from features import get_features_for_date
 
 st.title("Predict Trading Volume for a Specific Date")
-st.caption("Model: Random Forest Regressor (tuned via GridSearchCV)")
 
 # Load models
 with open('models/best_model_spy.pkl', 'rb') as f:
@@ -127,24 +125,48 @@ if st.button("Predict Volume"):
     with st.spinner('Predicting...'):
         date_str = target_date.strftime("%Y-%m-%d")
 
-        # 抓每個資產的 features（自己抓自己的volume和lag_return）
-        features_spy = get_features_for_date(date_str, "SPY").astype(float)
-        features_sso = get_features_for_date(date_str, "SSO").astype(float)
-        features_upro = get_features_for_date(date_str, "UPRO").astype(float)
+        # --- 取得 features
+        features = get_features_for_date(date_str)
+        features = features.astype(float)
 
-        # 選定要送進模型的columns
+        # --- 確保 features 有所有需要的欄位
         ml_features_clean = [
             'lag_vol', 'lag_return', 'rolling_std_5d', 'lag_vix',
             'NFP_surprise_z', 'ISM_surprise_z', 'CPI_surprise_z',
             'Housing_Starts_surprise_z', 'Jobless_Claims_surprise_z',
             'monday_dummy', 'wednesday_dummy', 'friday_dummy'
         ]
+        for col in ml_features_clean:
+            if col not in features.columns:
+                features[col] = 0.0
 
+        # --- 抓每個資產的 lag_return
+        def get_lag_return(ticker, date_str):
+            start = pd.to_datetime(date_str) - pd.Timedelta(days=1)
+            end = pd.to_datetime(date_str) + pd.Timedelta(days=1)
+            prices = yf.download(ticker, start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)["Close"]
+            returns = np.log(prices).diff()
+            return returns.dropna().iloc[-1]
+
+        lag_return_spy = get_lag_return("SPY", date_str)
+        lag_return_sso = get_lag_return("SSO", date_str)
+        lag_return_upro = get_lag_return("UPRO", date_str)
+
+        # --- 分別補上 lag_return
+        features_spy = features.copy()
+        features_spy["lag_return"] = lag_return_spy
+
+        features_sso = features.copy()
+        features_sso["lag_return"] = lag_return_sso
+
+        features_upro = features.copy()
+        features_upro["lag_return"] = lag_return_upro
+
+        # --- 分別做預測
         X_spy = features_spy[ml_features_clean]
         X_sso = features_sso[ml_features_clean]
         X_upro = features_upro[ml_features_clean]
 
-        # 分別做預測
         pred_log_spy = model_spy.predict(X_spy)[0]
         pred_vol_spy = np.exp(pred_log_spy) - 1
 
@@ -154,7 +176,7 @@ if st.button("Predict Volume"):
         pred_log_upro = model_upro.predict(X_upro)[0]
         pred_vol_upro = np.exp(pred_log_upro) - 1
 
-    # 顯示在三個Tab
+    # --- 顯示在三個Tab
     tab1, tab2, tab3 = st.tabs(["SPY", "SSO", "UPRO"])
 
     with tab1:
