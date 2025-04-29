@@ -125,22 +125,16 @@ if st.button("Predict Volume"):
     with st.spinner('Predicting...'):
         date_str = target_date.strftime("%Y-%m-%d")
 
-        # --- 取得 features
-        features = get_features_for_date(date_str)
-        features = features.astype(float)
+        # --- 分別取得每個資產的 feature
+        features_spy = get_features_for_date(date_str, asset="SPY")
+        features_sso = get_features_for_date(date_str, asset="SSO")
+        features_upro = get_features_for_date(date_str, asset="UPRO")
 
-        # --- 確保 features 有所有需要的欄位
-        ml_features_clean = [
-            'lag_vol', 'lag_return', 'rolling_std_5d', 'lag_vix',
-            'NFP_surprise_z', 'ISM_surprise_z', 'CPI_surprise_z',
-            'Housing_Starts_surprise_z', 'Jobless_Claims_surprise_z',
-            'monday_dummy', 'wednesday_dummy', 'friday_dummy'
-        ]
-        for col in ml_features_clean:
-            if col not in features.columns:
-                features[col] = 0.0
+        features_spy = features_spy.astype(float)
+        features_sso = features_sso.astype(float)
+        features_upro = features_upro.astype(float)
 
-        # --- 抓每個資產的 lag_return
+        # --- 補上 lag_return
         def get_lag_return(ticker, date_str):
             start = pd.to_datetime(date_str) - pd.Timedelta(days=1)
             end = pd.to_datetime(date_str) + pd.Timedelta(days=1)
@@ -152,21 +146,32 @@ if st.button("Predict Volume"):
         lag_return_sso = get_lag_return("SSO", date_str)
         lag_return_upro = get_lag_return("UPRO", date_str)
 
-        # --- 分別補上 lag_return
-        features_spy = features.copy()
         features_spy["lag_return"] = lag_return_spy
-
-        features_sso = features.copy()
         features_sso["lag_return"] = lag_return_sso
-
-        features_upro = features.copy()
         features_upro["lag_return"] = lag_return_upro
 
-        # --- 分別做預測
+        # --- 預設需要的特徵
+        ml_features_clean = [
+            'lag_vol', 'lag_return', 'rolling_std_5d', 'lag_vix',
+            'NFP_surprise_z', 'ISM_surprise_z', 'CPI_surprise_z',
+            'Housing_Starts_surprise_z', 'Jobless_Claims_surprise_z',
+            'monday_dummy', 'wednesday_dummy', 'friday_dummy'
+        ]
+
+        # --- 確保每個 features 都包含必要欄位（如果沒有就補0）
+        for col in ml_features_clean:
+            if col not in features_spy.columns:
+                features_spy[col] = 0.0
+            if col not in features_sso.columns:
+                features_sso[col] = 0.0
+            if col not in features_upro.columns:
+                features_upro[col] = 0.0
+
         X_spy = features_spy[ml_features_clean]
         X_sso = features_sso[ml_features_clean]
         X_upro = features_upro[ml_features_clean]
 
+        # --- 預測
         pred_log_spy = model_spy.predict(X_spy)[0]
         pred_vol_spy = np.exp(pred_log_spy) - 1
 
