@@ -40,7 +40,19 @@ By developing models that can anticipate these volume changes, we contribute to 
 
 We employ a combination of time-series modeling techniques, leveraging the data provided in the attached analysis, to capture the dynamics between sentiment, macroeconomic conditions, and market trading behavior.
 
-We specifically include the trading activity of leveraged ETFs (SSO and UPRO) to examine whether 2x and 3x leveraged products exhibit greater sensitivity to trading volume changes. 
+We specifically include the trading activity of leveraged ETFs (SSO and UPRO) to examine whether 2x and 3x leveraged products exhibit greater sensitivity to trading volume changes.
 This approach allows us to assess whether leveraged market behavior provides earlier or stronger signals of shifts in overall market participation.
 """)
+
+# --- Sidebar Navigation ---
+st.sidebar.markdown("### Start Here:")
+st.sidebar.page_link("main.py", label="Info about this App")
+st.sidebar.page_link("pages/0_Data_Dictionary.py", label="Data Dictionary")
+
+st.sidebar.markdown("### Dashboard Options:")
+st.sidebar.page_link("pages/1_Model_Training.py", label="1) Model Training Code")
+st.sidebar.page_link("pages/2_Model_Parameters.py", label="2) Parameters of Trained Model")
+st.sidebar.page_link("pages/3_Forecast_Analyze.py", label="3) Forecast & Analyze Accruals")
+st.sidebar.page_link("pages/4_List_Model_Code.py", label="4) List Model Training Code")
+st.sidebar.page_link("pages/5_List_Streamlit_App_Code.py", label="5) List Streamlit App Code")
 
