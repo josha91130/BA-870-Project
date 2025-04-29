@@ -58,7 +58,7 @@ if st.button("Predict Volume"):
             if not returns.dropna().empty:
               return returns.dropna().iloc[-1]
 
-        raise ValueError(f"Unable to find lag return for {ticker} on {date_str} even after looking back {lookback_days} days.")
+        raise ValueError(f"Unable to find lag return for {ticker} on {date_str}.")
 
         lag_return_spy = get_lag_return("SPY", date_str)
         lag_return_sso = get_lag_return("SSO", date_str)
