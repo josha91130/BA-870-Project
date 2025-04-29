@@ -178,31 +178,19 @@ std_dict = {
 }
 
 # ── (D) FINAL GET_FEATURES FUNCTION ──
-# def get_features_for_date(target_date):
-#     # 1) market
-#     feat = get_market_features(target_date)
-
-#     # 2) macro surprise_z
-#     for var in urls:
-#         sel = df_summary[
-#             (df_summary['variable']==var) &
-#             (df_summary['release_date']==pd.to_datetime(target_date).date())
-#         ]
-#         if not sel.empty:
-#             actual   = sel.iloc[0]['actual']
-#             forecast = sel.iloc[0]['forecast']
-#             z = compute_surprise_z(
-#                 actual, forecast,
-#                 mean_dict[var], std_dict[var]
-#             )
-#             feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
-#         else:
-#             feat.loc[0, f"{var}_surprise_z"] = 0.0
-
-#     return feat
 def get_features_for_date(target_date, ticker):
     # 1) market
-    feat = get_market_features(target_date, ticker)
+    # feat = get_market_features(target_date, ticker)
+    def get_features_for_date(target_date, asset="SPY"):
+    # 1) market features: 針對不同asset選擇正確資料
+    if asset == "SPY":
+        feat = get_market_features(target_date)
+    elif asset == "SSO":
+        feat = get_market_features_sso(target_date)
+    elif asset == "UPRO":
+        feat = get_market_features_upro(target_date)
+    else:
+        raise ValueError("Asset must be 'SPY', 'SSO', or 'UPRO'")
 
     # 2) macro surprise_z (
     for var in urls:
@@ -222,3 +210,4 @@ def get_features_for_date(target_date, ticker):
             feat.loc[0, f"{var}_surprise_z"] = 0.0
 
     return feat
+    
