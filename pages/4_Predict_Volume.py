@@ -28,16 +28,16 @@ target_date = st.date_input(
 
 if st.button("Predict Volume"):
     with st.spinner('Predicting...'):
-        # --- 取得 features (lag_return 尚未補)
-        features_spy = get_features_for_date(target_date.strftime("%Y-%m-%d"), ticker="SPY")
-        features_sso = get_features_for_date(target_date.strftime("%Y-%m-%d"), ticker="SSO")
-        features_upro = get_features_for_date(target_date.strftime("%Y-%m-%d"), ticker="UPRO")
-        
+        date_str = target_date.strftime("%Y-%m-%d")
+
+        # --- 分別取得各資產的 features
+        features_spy = get_features_for_date(date_str, ticker="SPY")
+        features_sso = get_features_for_date(date_str, ticker="SSO")
+        features_upro = get_features_for_date(date_str, ticker="UPRO")
+
         features_spy = features_spy.astype(float)
         features_sso = features_sso.astype(float)
         features_upro = features_upro.astype(float)
-
-        date_str = target_date.strftime("%Y-%m-%d")
 
         # --- 抓每個資產的 lag_return
         def get_lag_return(ticker, date_str):
@@ -51,17 +51,10 @@ if st.button("Predict Volume"):
         lag_return_sso = get_lag_return("SSO", date_str)
         lag_return_upro = get_lag_return("UPRO", date_str)
 
-        # --- 分別補上 lag_return
-        features_spy = features.copy()
         features_spy["lag_return"] = lag_return_spy
-
-        features_sso = features.copy()
         features_sso["lag_return"] = lag_return_sso
-
-        features_upro = features.copy()
         features_upro["lag_return"] = lag_return_upro
 
-        # --- 分別做預測
         ml_features_clean = [
             'lag_vol', 'lag_return', 'rolling_std_5d', 'lag_vix',
             'NFP_surprise_z', 'ISM_surprise_z', 'CPI_surprise_z',
