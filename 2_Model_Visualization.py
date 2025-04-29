@@ -1,5 +1,5 @@
 # --- pages/3_Model_Training.py ---
-# 🧠 Model Training
+# Model Training
 import streamlit as st
 
 st.set_page_config(page_title="Model Training", layout="wide")
