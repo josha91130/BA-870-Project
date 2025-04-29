@@ -1,5 +1,5 @@
-# --- pages/1_Intro_to_App.py ---
-# 📘 Project Introduction (完整保留你的介紹)
+# pages/1_Intro_to_App.py
+# Project Introduction
 import streamlit as st
 
 st.set_page_config(page_title="Intro to the App", layout="wide")
@@ -29,7 +29,7 @@ st.markdown("---")
 st.subheader("🛠️ Indicators Incorporated in the Model")
 st.write("""
 Our approach incorporates multiple types of indicators:
-- **Market Sentiment Measures** such as the VIX (volatility index) and the trading activity of leveraged ETFs like **SSO (2x S&P500)** and **UPRO (3x S&P500)**.
+- **Market Sentiment Measures** such as the VIX (volatility index).
 - **Macroeconomic Variables** such as Nonfarm Payrolls, ISM Manufacturing PMI, CPI, Housing Starts, Jobless Claims, and Industrial Production.
 """)
 
