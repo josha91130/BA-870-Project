@@ -5,4 +5,5 @@ requests
 beautifulsoup4
 yfinance
 matplotlib
-lxmlxgboostscikit-learn
+lxml
+scikit-learn
