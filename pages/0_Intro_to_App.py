@@ -1,20 +1,9 @@
-# Project Introduction - pages/0_Intro_to_App.py
+# --- pages/1_Intro_to_App.py ---
+# 📘 Project Introduction (完整保留你的介紹)
 import streamlit as st
 
 st.set_page_config(page_title="Intro to the App", layout="wide")
 
-# --- Sidebar Navigation ---
-with st.sidebar:
-    st.markdown("## 📚 Start Here")
-    st.page_link("pages/0_Intro_to_App.py", label="Intro to the App")
-    st.page_link("pages/1_Info.py", label="Info")
-
-    st.markdown("## 📈 Dashboard Options")
-    st.page_link("pages/2_Model_Visualization.py", label="Model Visualization")
-    st.page_link("pages/3_Get_Features.py", label="Get Features")
-    st.page_link("pages/4_Predict_Volume.py", label="Predict Volume")
-
-# --- Main Page Content ---
 st.title("📘 Predicting Trading Volumes with Market Sentiment and Macroeconomic Indicators")
 
 # --- Project Overview ---
@@ -40,7 +29,7 @@ st.markdown("---")
 st.subheader("🛠️ Indicators Incorporated in the Model")
 st.write("""
 Our approach incorporates multiple types of indicators:
-- **Market Sentiment Measures** such as the VIX (volatility index).
+- **Market Sentiment Measures** such as the VIX (volatility index) and the trading activity of leveraged ETFs like **SSO (2x S&P500)** and **UPRO (3x S&P500)**.
 - **Macroeconomic Variables** such as Nonfarm Payrolls, ISM Manufacturing PMI, CPI, Housing Starts, Jobless Claims, and Industrial Production.
 """)
 
@@ -56,4 +45,3 @@ We employ a combination of time-series modeling techniques, leveraging the data 
 We specifically include the trading activity of leveraged ETFs (SSO and UPRO) to examine whether 2x and 3x leveraged products exhibit greater sensitivity to trading volume changes.
 This approach allows us to assess whether leveraged market behavior provides earlier or stronger signals of shifts in overall market participation.
 """)
-
