@@ -68,14 +68,14 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 
 # ── (B) MARKET FEATURES ──
-# #def get_market_features(target_date, recent_days=10):
-#     """
-#     Download SPY & VIX up through target_date, then compute:
-#       - lag_vol         : yesterday’s log(volume+1)
-#       - rolling_std_5d  : 5-day rolling std of log(volume+1)
-#       - lag_vix         : yesterday’s VIX close
-#       - monday_dummy, wednesday_dummy, friday_dummy
-#     """
+#def get_market_features(target_date, recent_days=10):
+    # """
+    # Download SPY & VIX up through target_date, then compute:
+    #   - lag_vol         : yesterday’s log(volume+1)
+    #   - rolling_std_5d  : 5-day rolling std of log(volume+1)
+    #   - lag_vix         : yesterday’s VIX close
+    #   - monday_dummy, wednesday_dummy, friday_dummy
+    # """
     #dt = pd.to_datetime(target_date)
     #start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     #end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -103,7 +103,6 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
     #     "wednesday_dummy": int(wd == 2),
     #     "friday_dummy": int(wd == 4)
     # }])
-
 def get_market_features(target_date, ticker, recent_days=10):
     """
     Download the selected ticker & VIX up through target_date, then compute:
@@ -139,7 +138,6 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
-
 # ── (C) SURPRISE Z CALC ──
 def clean_macro_value(x):
     """ '228K'->228.0 (thousands), '2.3%'->2.3, else float(x). """
@@ -179,7 +177,7 @@ std_dict = {
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].std()
 }
 
-# # ── (D) FINAL GET_FEATURES FUNCTION ──
+# ── (D) FINAL GET_FEATURES FUNCTION ──
 # def get_features_for_date(target_date):
 #     # 1) market
 #     feat = get_market_features(target_date)
