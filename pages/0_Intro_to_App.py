@@ -8,11 +8,6 @@ st.title("📘 Predicting Trading Volumes with Market Sentiment and Macroeconomi
 
 # --- Project Overview ---
 st.write("""
-Trading volume is a key reflection of market participation and liquidity, both of which are essential for efficient pricing and investment decision-making.
-
-In this project, we explore how market sentiment and macroeconomic signals jointly influence trading activity, focusing specifically on predicting the trading volume of SPY, the world's largest S&P 500 ETF.
-""")
-st.write("""
 Welcome!
 This dashboard predicts SPY trading volumes based on market sentiment and macroeconomic indicators.
 
@@ -20,6 +15,13 @@ This dashboard predicts SPY trading volumes based on market sentiment and macroe
 
 👉 Please start by selecting **Intro to the App** on the sidebar.
 """)
+
+st.write("""
+Trading volume is a key reflection of market participation and liquidity, both of which are essential for efficient pricing and investment decision-making.
+
+In this project, we explore how market sentiment and macroeconomic signals jointly influence trading activity, focusing specifically on predicting the trading volume of SPY, the world's largest S&P 500 ETF.
+""")
+
 st.markdown("---")
 
 # --- Importance ---
