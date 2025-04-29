@@ -1,15 +1,14 @@
-# --- pages/3_Model_Training.py ---
-# 🧠 Model Training
+# --- main.py ---
+# 📚 Start Here: App Introduction
 import streamlit as st
 
-st.set_page_config(page_title="Model Training", layout="wide")
+st.set_page_config(page_title="Start Here", layout="wide")
 
-st.title("🧠 Model Training Process")
+st.title("📚 Welcome to Trading Volume Prediction App")
 
 st.write("""
-Here we describe how the models were trained:
-- Features: lag_vol, lag_return, rolling_std_5d, etc.
-- Model types: XGBoost, Linear Regression
-- Validation: Train/Test Split
-- Metrics: RMSE
+Welcome!  
+This dashboard predicts SPY trading volumes based on market sentiment and macroeconomic indicators.
+Contributor: Zhe Yu Lin, Pei Chi Chu, Ming Hua Tsai
+👉 Please start by selecting **Intro to the App** on the sidebar.
 """)
