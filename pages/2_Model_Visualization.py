@@ -1,19 +1,20 @@
-
+# --- pages/2_Model_Visualization.py ---
 import streamlit as st
-from visualization import plot_predictions
 
-st.title("Model Visualization")
+st.set_page_config(page_title="Model Visualization", layout="wide")
 
-tab1, tab2, tab3 = st.tabs(["SPY", "SSO", "UPRO"])
+# --- Sidebar Navigation ---
+with st.sidebar:
+    st.markdown("## 📚 Start Here")
+    st.page_link("pages/0_Intro_to_App.py", label="Intro to the App")
+    st.page_link("pages/1_Info.py", label="Data Dictionary")
 
-with tab1:
-    st.header("SPY Prediction vs Actual")
-    plot_predictions("SPY")
+    st.markdown("## 📈 Dashboard Options")
+    st.page_link("pages/2_Model_Visualization.py", label="Model Visualization")
+    st.page_link("pages/3_Get_Features.py", label="Get Features")
+    st.page_link("pages/4_Predict_Volume.py", label="Predict Volume")
 
-with tab2:
-    st.header("SSO Prediction vs Actual")
-    plot_predictions("SSO")
+# --- Main Page Content ---
+st.title("📈 Model Visualization")
 
-with tab3:
-    st.header("UPRO Prediction vs Actual")
-    plot_predictions("UPRO")
+st.write("Here will be the plots showing model results, actual vs predicted trading volume.")
