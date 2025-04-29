@@ -10,7 +10,6 @@ st.title("📘 Predicting Trading Volumes with Market Sentiment and Macroeconomi
 st.write("""
 **Contributor:** Zhe Yu Lin, Pei Chi Chu, Ming Hua Tsai
 
-👉 Please start by selecting **Intro to the App** on the sidebar.
 """)
 
 st.write("""
