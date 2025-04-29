@@ -40,12 +40,25 @@ if st.button("Predict Volume"):
         features_upro = features_upro.astype(float)
 
         # --- 抓每個資產的 lag_return
-        def get_lag_return(ticker, date_str):
-            start = pd.to_datetime(date_str) - pd.Timedelta(days=1)
-            end = pd.to_datetime(date_str) + pd.Timedelta(days=1)
+        # def get_lag_return(ticker, date_str):
+        #     start = pd.to_datetime(date_str) - pd.Timedelta(days=1)
+        #     end = pd.to_datetime(date_str) + pd.Timedelta(days=1)
+        #     prices = yf.download(ticker, start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)["Close"]
+        #     returns = np.log(prices).diff()
+        #     return returns.dropna().iloc[-1]
+        def get_lag_return(ticker, date_str, lookback_days=5):
+          dt = pd.to_datetime(date_str)
+          for delta in range(1, lookback_days+1):
+            start = dt - pd.Timedelta(days=delta)
+            end = dt + pd.Timedelta(days=1)
             prices = yf.download(ticker, start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)["Close"]
+
             returns = np.log(prices).diff()
-            return returns.dropna().iloc[-1]
+
+            if not returns.dropna().empty:
+              return returns.dropna().iloc[-1]
+    
+        raise ValueError(f"Unable to find lag return for {ticker} on {date_str} even after looking back {lookback_days} days.")
 
         lag_return_spy = get_lag_return("SPY", date_str)
         lag_return_sso = get_lag_return("SSO", date_str)
