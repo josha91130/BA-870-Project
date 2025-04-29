@@ -15,7 +15,7 @@ housing_starts_final = pd.read_csv('historical/housing_starts_final.csv')
 final_data = pd.read_csv('historical/final_data_spy.csv')
 final_data_sso = pd.read_csv('historical/final_data_sso.csv')
 final_data_upro = pd.read_csv('historical/final_data_upro.csv')
-# ── (A) MACRO SCRAPER ──
+# Scraoe the Macro data
 urls = {
     "CPI": 'https://www.investing.com/economic-calendar/cpi-733',
     "NFP": 'https://www.investing.com/economic-calendar/nonfarm-payrolls-227',
@@ -35,7 +35,7 @@ def get_actual_forecast_bs4(url):
     resp = requests.get(url, headers=headers); resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "lxml")
 
-    # 1) release date
+    # release date
     date_span = (
         soup.select_one("p.eventDetails span.date")
         or soup.select_one("div.eventHeader span.date")
@@ -43,11 +43,11 @@ def get_actual_forecast_bs4(url):
     )
     release_date = date_span.get_text(strip=True) if date_span else None
 
-    # 2) forecast
+    # forecast
     fc = soup.select_one("div.arial_14.noBold")
     forecast = fc.get_text(strip=True) if fc else None
 
-    # 3) actual (greenFont or redFont)
+    # actual (greenFont or redFont)
     ac = soup.select_one("div.arial_14.greenFont, div.arial_14.redFont")
     actual = ac.get_text(strip=True) if ac else None
 
@@ -67,42 +67,8 @@ df_summary = pd.DataFrame(records)
 df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
 
 
-# ── (B) MARKET FEATURES ──
-# def get_market_features(target_date, ticker, recent_days=10):
-#     """
-#     Download the selected ticker & VIX up through target_date, then compute:
-#       - lag_vol         : yesterday’s log(volume+1)
-#       - rolling_std_5d  : 5-day rolling std of log(volume+1)
-#       - lag_vix         : yesterday’s VIX close
-#       - monday_dummy, wednesday_dummy, friday_dummy
-#     """
-#     dt = pd.to_datetime(target_date)
-#     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-#     end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+# Market Features
 
-#     df = yf.download([ticker,"^VIX"], start=start, end=end, progress=False)
-
-#     # ticker volume features
-#     vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-#     logv    = np.log(vol + 1)
-#     lag_vol = logv.shift(1).iloc[-1]
-#     rolling_std_5d = logv.rolling(5).std().iloc[-1]
-
-#     # VIX: compute lagged close instead of same-day
-#     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-#     lag_vix = vix_series.shift(1).iloc[-1]
-
-#     # weekday dummies
-#     wd = dt.weekday()
-
-#     return pd.DataFrame([{
-#         "lag_vol": lag_vol,
-#         "rolling_std_5d":  rolling_std_5d,
-#         "lag_vix": lag_vix,
-#         "monday_dummy": int(wd == 0),
-#         "wednesday_dummy": int(wd == 2),
-#         "friday_dummy": int(wd == 4)
-#     }])
 def get_market_features(target_date, ticker, recent_days=10):
     """
     Download the selected ticker & VIX up through target_date, then compute:
@@ -118,22 +84,22 @@ def get_market_features(target_date, ticker, recent_days=10):
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    # --- 處理 volume
+    # volume
     vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    # --- 處理 VIX
+    # VIX
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
     lag_vix = vix_series.shift(1).iloc[-1]
 
-    # --- 處理 lag return
+    # lag return
     prices = df["Close"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     log_returns = np.log(prices).diff()
     lag_return = log_returns.shift(1).iloc[-1]
 
-    # --- weekday
+    # weekday
     wd = dt.weekday()
 
     return pd.DataFrame([{
@@ -145,7 +111,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
-# ── (C) SURPRISE Z CALC ──
+# Surprise Z Score
 def clean_macro_value(x):
     """ '228K'->228.0 (thousands), '2.3%'->2.3, else float(x). """
     if x is None: return None
@@ -168,7 +134,7 @@ def compute_surprise_z(actual, forecast, mean, std):
         return None
     return ((a - f) - mean) / std
 
-# assume you have precomputed:
+# mean, std
 mean_dict = {
     "CPI": cpi_yoy_final['CPI_surprise'].mean(),
     "NFP": nonfarm_final['NFP_surprise'].mean(),
@@ -184,12 +150,12 @@ std_dict = {
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].std()
 }
 
-# ── (D) FINAL GET_FEATURES FUNCTION ──
+# Final Function
 def get_features_for_date(target_date, ticker):
-    # 1) market
+    # market
     feat = get_market_features(target_date, ticker)
 
-    # 2) macro surprise_z (
+    # macro surprise_z
     for var in urls:
         sel = df_summary[
             (df_summary['variable']==var) &
