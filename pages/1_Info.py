@@ -1,9 +1,22 @@
-# --- pages/2_Data_Dictionary.py ---
+# --- pages/1_Info.py ---
 # Feature Dictionary
 import streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="Data Dictionary", layout="wide")
+
+# --- Sidebar Navigation ---
+with st.sidebar:
+    st.markdown("## 📚 Start Here")
+    st.page_link("pages/0_Intro_to_App.py", label="Intro to the App")
+    st.page_link("pages/1_Info.py", label="Data Dictionary")
+
+    st.markdown("## 📈 Dashboard Options")
+    st.page_link("pages/2_Model_Visualization.py", label="Model Visualization")
+    st.page_link("pages/3_Get_Features.py", label="Get Features")
+    st.page_link("pages/4_Predict_Volume.py", label="Predict Volume")
+
+# --- Main Page Content ---
 st.title("📚 Data Dictionary")
 
 # --- Cleaned Data Dictionary ---
@@ -37,7 +50,7 @@ data = {
     "Frequency": [
         "Daily", "Daily", "Daily", "Daily",
         "Monthly", "Monthly", "Monthly",
-        "Monthly", "Weekly","Daily", "Daily",
+        "Monthly", "Weekly", "Daily", "Daily",
         "-", "-", "-"
     ],
     "Source": [
