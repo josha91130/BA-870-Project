@@ -8,9 +8,6 @@ st.title("📘 Predicting Trading Volumes with Market Sentiment and Macroeconomi
 
 # --- Project Overview ---
 st.write("""
-Welcome!
-This dashboard predicts SPY trading volumes based on market sentiment and macroeconomic indicators.
-
 **Contributor:** Zhe Yu Lin, Pei Chi Chu, Ming Hua Tsai
 
 👉 Please start by selecting **Intro to the App** on the sidebar.
