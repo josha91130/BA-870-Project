@@ -58,44 +58,39 @@ def get_market_features(target_date, ticker="SPY", lookback_days=60):
     import numpy as np
     from datetime import timedelta
 
-    # parse target and define window
     dt = pd.to_datetime(target_date)
     start = dt - timedelta(days=lookback_days)
     end = dt + timedelta(days=1)
 
-    # download SPY + VIX
-    df = yf.download([ticker, "^VIX"],
-                     start=start.strftime("%Y-%m-%d"),
-                     end=end.strftime("%Y-%m-%d"),
-                     progress=False)
+    df = yf.download([ticker, "^VIX"], start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)
 
-    # pull series
-    vol = df["Volume"][ticker]
-    vix = df["Close"]["^VIX"]
+    print("Downloaded df:")
+    print(df.tail(10))
+    if df.empty:
+        raise ValueError("⚠️ yfinance.download() returned empty DataFrame.")
 
-    # filter to dates ≤ target_date (calendar date)
+    try:
+        vol = df["Volume"][ticker]
+        vix = df["Close"]["^VIX"]
+    except Exception as e:
+        print("df.columns:", df.columns)
+        raise ValueError(f"⚠️ Data structure unexpected: {e}")
+
     vol = vol[vol.index.date <= dt.date()]
     vix = vix[vix.index.date <= dt.date()]
 
     if vol.empty or vix.empty:
         raise ValueError(f"No market data returned for {ticker} or VIX up to {target_date}")
 
-    # find the last two available trading dates
     dates = vol.index.unique()
-    # take the two most recent dates
     last_dates = sorted(dates)[-2:]
     prev_day, last_day = last_dates
 
-    # compute log volume + rolling
     logv = np.log(vol + 1)
     lag_vol = float(logv.loc[prev_day])
-    # rolling std uses all days up to last_day
     rolling_std_5d = float(logv.loc[:last_day].rolling(5).std().iloc[-1])
-
-    # VIX lag
     lag_vix = float(vix.loc[prev_day])
 
-    # weekday dummies
     wd = dt.weekday()
     return pd.DataFrame([{
         "lag_vol": lag_vol,
