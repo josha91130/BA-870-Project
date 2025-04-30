@@ -69,35 +69,33 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker, recent_days=10):
-    import pandas as pd
-    import numpy as np
-    import yfinance as yf
+    import pandas as pd, numpy as np, yfinance as yf
     from datetime import timedelta
 
-    dt = pd.to_datetime(target_date)
+    dt    = pd.to_datetime(target_date)
     start = dt - timedelta(days=recent_days)
-    end = dt + timedelta(days=1)
+    end   = dt + timedelta(days=1)
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
-    df.index = pd.to_datetime(df.index)
+    df.index = pd.to_datetime(df.index)               # 保證是 Timestamp
 
-    logv = np.log(df[("Volume", ticker)] + 1)
+    logv = np.log(df[("Volume", ticker)] + 1)         # ← 有值
 
-    lag_vol = logv.shift(1).iloc[-1] if len(logv.shift(1)) > 0 else 0.0
-    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv.rolling(5).std()) > 0 else 0.0
-    lag_vix = df[("Close", "^VIX")].shift(1).iloc[-1] if len(df[("Close", "^VIX")].shift(1)) > 0 else 0.0
+    # 只改下面 3 行：直接取「前一天」資料，不再用 shift/iloc[-1] 造成越界
+    lag_vol        = logv.iloc[-2]  if len(logv) >= 2 else 0.0
+    rolling_std_5d = logv.iloc[-5:].std() if len(logv) >= 5 else logv.std()
+    lag_vix        = df[("Close", "^VIX")].iloc[-2] if len(df) >= 2 else 0.0
 
     wd = dt.weekday()
 
     return pd.DataFrame([{
-        "lag_vol": lag_vol,
+        "lag_vol":        lag_vol,
         "rolling_std_5d": rolling_std_5d,
-        "lag_vix": lag_vix,
-        "monday_dummy": int(wd == 0),
-        "wednesday_dummy": int(wd == 2),
-        "friday_dummy": int(wd == 4)
+        "lag_vix":        lag_vix,
+        "monday_dummy":      int(wd == 0),
+        "wednesday_dummy":   int(wd == 2),
+        "friday_dummy":      int(wd == 4)
     }])
-
 
 
 
