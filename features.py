@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta
 
-# ── (A) Load Historical Data ──
+# ── Load Historical Data ──
 cpi_yoy_final = pd.read_csv('historical/cpi_yoy_final.csv')
 nonfarm_final = pd.read_csv('historical/nonfarm_final.csv')
 ism_final = pd.read_csv('historical/ism_final.csv')
@@ -16,7 +16,7 @@ final_data = pd.read_csv('historical/final_data_spy.csv')
 final_data_sso = pd.read_csv('historical/final_data_sso.csv')
 final_data_upro = pd.read_csv('historical/final_data_upro.csv')
 
-# ── (B) Macro Data URLs ──
+# ── (A) Macro Scraper Setup ──
 urls = {
     "CPI": 'https://www.investing.com/economic-calendar/cpi-733',
     "NFP": 'https://www.investing.com/economic-calendar/nonfarm-payrolls-227',
@@ -25,7 +25,6 @@ urls = {
     "Housing_Starts": 'https://www.investing.com/economic-calendar/housing-starts-149'
 }
 
-# ── (C) Macro Data Scraper ──
 def scrape_macro_data():
     headers = {"User-Agent": "Mozilla/5.0"}
     records = []
@@ -65,7 +64,7 @@ def scrape_macro_data():
 
 df_summary = scrape_macro_data()
 
-# ── (D) Market Feature Extractor ──
+# ── (B) Market Feature Engineering ──
 def get_market_features(target_date, ticker, recent_days=10):
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
@@ -97,7 +96,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "friday_dummy": int(wd == 4)
     }])
 
-# ── (E) Surprise Z-score Utilities ──
+# ── (C) Surprise Z-Score ──
 def clean_macro_value(x):
     if x is None:
         return None
@@ -134,7 +133,7 @@ std_dict = {
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].std()
 }
 
-# ── (F) Final Feature Generator ──
+# ── (D) Final Feature Combiner ──
 def get_features_for_date(target_date, ticker):
     feat = get_market_features(target_date, ticker)
 
