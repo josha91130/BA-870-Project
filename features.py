@@ -68,43 +68,38 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 
 # ── (B) MARKET FEATURES ──
-def get_market_features(target_date, ticker, recent_days=10):
-    import pandas as pd
-    import numpy as np
-    import yfinance as yf
-    from datetime import timedelta
-
-    # 1. 設定日期範圍
+def get_market_features(target_date, recent_days=10):
+    """
+    Download SPY & VIX up through target_date, then compute:
+      - lag_vol         : yesterday’s log(volume+1)
+      - rolling_std_5d  : 5-day rolling std of log(volume+1)
+      - lag_vix         : yesterday’s VIX close
+      - monday_dummy, wednesday_dummy, friday_dummy
+    """
     dt = pd.to_datetime(target_date)
-    start = dt - timedelta(days=recent_days)
-    end = dt + timedelta(days=1)
+    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
+    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    # 2. 抓資料：一次抓 ticker 和 VIX
-    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
+    df = yf.download(["SPY", "^VIX"], start=start, end=end, progress=False)
 
-    # 3. 處理成交量與 log(volume+1)
-    logv = np.log(df["Volume"][ticker] + 1)
+    vol = df["Volume"]["SPY"].loc[:dt.strftime("%Y-%m-%d")]
+    logv = np.log(vol + 1)
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    # 安全抓倒數第 2 筆，不夠就填 0
-    lag_vol = logv.shift(1).iloc[-1] if len(logv) > 1 else 0.0
-    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else logv.std()
+    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).iloc[-1]
 
-    # 4. 處理 VIX 收盤價
-    vix_series = df["Close"]["^VIX"]
-    lag_vix = vix_series.shift(1).iloc[-1] if len(vix_series) > 1 else 0.0
-
-    # 5. 處理 weekday dummy
     wd = dt.weekday()
 
     return pd.DataFrame([{
         "lag_vol": lag_vol,
-        "rolling_std_5d": rolling_std_5d,
+        "rolling_std_5d":  rolling_std_5d,
         "lag_vix": lag_vix,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
-
 
 
 
@@ -192,23 +187,20 @@ std_dict = {
 }
 
 # ── (D) FINAL GET_FEATURES FUNCTION ──
-def get_features_for_date(target_date, ticker):
+def get_features_for_date(target_date):
     # 1) market
-    feat = get_market_features(target_date, ticker)
+    feat = get_market_features(target_date)
 
-    # 2) macro surprise_z (同一組)
+    # 2) macro surprise_z
     for var in urls:
         sel = df_summary[
-            (df_summary['variable']==var) & 
-            (df_summary['release_date']==pd.to_datetime(target_date).date())
+            (df_summary['variable'] == var) &
+            (df_summary['release_date'] == pd.to_datetime(target_date).date())
         ]
         if not sel.empty:
-            actual   = sel.iloc[0]['actual']
+            actual = sel.iloc[0]['actual']
             forecast = sel.iloc[0]['forecast']
-            z = compute_surprise_z(
-                actual, forecast,
-                mean_dict[var], std_dict[var]
-            )
+            z = compute_surprise_z(actual, forecast, mean_dict[var], std_dict[var])
             feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
         else:
             feat.loc[0, f"{var}_surprise_z"] = 0.0
