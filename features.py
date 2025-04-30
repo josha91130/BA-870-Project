@@ -69,28 +69,34 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker, recent_days=10):
-    import yfinance as yf
     import pandas as pd
     import numpy as np
+    import yfinance as yf
     from datetime import timedelta
 
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    # ✅ 關鍵：用正確 MultiIndex 取法
+    # 抓 volume 資料
     vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
 
-    # ✅ 加 dropna()，確保 .iloc[-1] 不會報錯
-    lag_vol = logv.shift(1).dropna().iloc[-1]
-    rolling_std_5d = logv.rolling(5).std().dropna().iloc[-1]
+    # 🔧關鍵修正：dropna 後檢查長度才取值
+    lag_vol = logv.shift(1).dropna()
+    lag_vol = lag_vol.iloc[-1] if not lag_vol.empty else 0.0
 
-    vix = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix.shift(1).dropna().iloc[-1]
+    rolling_std = logv.rolling(5).std().dropna()
+    rolling_std_5d = rolling_std.iloc[-1] if not rolling_std.empty else 0.0
 
+    # 抓 VIX close
+    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).dropna()
+    lag_vix = lag_vix.iloc[-1] if not lag_vix.empty else 0.0
+
+    # 星期 dummy
     wd = dt.weekday()
 
     return pd.DataFrame([{
@@ -101,7 +107,6 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
-
 
 
 
