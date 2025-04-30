@@ -53,38 +53,39 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) Market Feature Engineering ──
 def get_market_features(target_date, ticker="SPY", lookback_days=60):
+    import yfinance as yf
+    import pandas as pd
+    import numpy as np
+    from datetime import timedelta
+
+    # parse target and define window
     dt = pd.to_datetime(target_date)
-    start = dt - pd.Timedelta(days=lookback_days)
-    end = dt + pd.Timedelta(days=1)
+    start = dt - timedelta(days=lookback_days)
+    end = dt + timedelta(days=1)
 
-    df = yf.download([ticker, "^VIX"], start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)
+    # download data
+    df = yf.download([ticker, "^VIX"],
+                     start=start.strftime("%Y-%m-%d"),
+                     end=end.strftime("%Y-%m-%d"),
+                     progress=False)
 
-    try:
-        vol_series = df['Volume'][ticker]
-        vix_series = df['Close']['^VIX']
-    except KeyError as e:
-        raise ValueError(f"Market data missing for {ticker} or VIX: {e}")
+    # pull series
+    vol = df["Volume"][ticker]
+    vix = df["Close"]["^VIX"]
 
-    vol_to_date = vol_series[vol_series.index <= dt]
-    vix_to_date = vix_series[vix_series.index <= dt]
+    # filter by calendar date
+    vol = vol[vol.index.date <= dt.date()]
+    vix = vix[vix.index.date <= dt.date()]
 
-    logv = np.log(vol_to_date + 1)
+    # if you want to inspect what you actually got back:
+    # st.write(vol.tail())   # inside Streamlit
+    # st.write(vix.tail())
 
-    # Safe lag and rolling calculations
-    if len(logv) >= 2:
-        lag_vol = float(logv.iloc[-2])
-    else:
-        lag_vol = float(np.nan)
-
-    if len(logv) >= 5:
-        rolling_std_5d = float(logv.rolling(5).std().iloc[-1])
-    else:
-        rolling_std_5d = float(np.nan)
-
-    if len(vix_to_date) >= 2:
-        lag_vix = float(vix_to_date.iloc[-2])
-    else:
-        lag_vix = float(np.nan)
+    # compute logs & lags safely
+    logv = np.log(vol + 1)
+    lag_vol = float(logv.iloc[-2]) if len(logv) >= 2 else np.nan
+    rolling_std_5d = float(logv.rolling(5).std().iloc[-1]) if len(logv) >= 5 else np.nan
+    lag_vix = float(vix.iloc[-2]) if len(vix) >= 2 else np.nan
 
     wd = dt.weekday()
     return pd.DataFrame([{
