@@ -199,7 +199,7 @@ std_dict = {
 def get_features_for_date(target_date, asset="SPY"):
     # 1) market features: 針對不同asset選擇正確資料
     if asset == "SPY":
-        feat = get_market_features(target_date)
+        feat = get_market_features(target_date, "SPY")
     elif asset == "SSO":
         feat = get_market_features_sso(target_date)
     elif asset == "UPRO":
