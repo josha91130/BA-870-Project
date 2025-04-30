@@ -13,9 +13,20 @@ target_date = st.date_input(
 
 if st.button("Get Features"):
     with st.spinner('Getting features...'):
-        # 只抓 SPY，因為 get_features_for_date 目前只支援一個參數
-        features_spy = get_features_for_date(target_date.strftime("%Y-%m-%d"))
+        features_spy = get_features_for_date(target_date.strftime("%Y-%m-%d"), "SPY")
+        features_sso = get_features_for_date(target_date.strftime("%Y-%m-%d"), "SSO")
+        features_upro = get_features_for_date(target_date.strftime("%Y-%m-%d"), "UPRO")
 
-    # 只顯示 SPY tab
-    st.subheader("SPY Features")
-    st.dataframe(features_spy)
+    tab1, tab2, tab3 = st.tabs(["SPY Features", "SSO Features", "UPRO Features"])
+
+    with tab1:
+        st.subheader("SPY Features")
+        st.dataframe(features_spy)
+
+    with tab2:
+        st.subheader("SSO Features")
+        st.dataframe(features_sso)
+
+    with tab3:
+        st.subheader("UPRO Features")
+        st.dataframe(features_upro)
