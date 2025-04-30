@@ -74,42 +74,36 @@ def get_market_features(target_date, ticker, recent_days=10):
     import yfinance as yf
     from datetime import timedelta
 
-    # 1) 目标日期、区间
+    # 1. 設定日期範圍
     dt = pd.to_datetime(target_date)
     start = dt - timedelta(days=recent_days)
-    end   = dt + timedelta(days=1)
+    end = dt + timedelta(days=1)
 
-    # 2) 用 .history() 分别取单独 ETF 数据
-    hist = yf.Ticker(ticker).history(start=start, end=end)
-    hist.index = pd.to_datetime(hist.index)
-    vol = hist["Volume"]
-    logv = np.log(vol + 1)
+    # 2. 抓資料：一次抓 ticker 和 VIX
+    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    # —— 核心三行 —— 
-    lag_vol        = logv.iloc[-2]          # 前一交易日（4/24）的 log(volume+1)
-    rolling_std_5d = logv.iloc[-5:].std()   # 最近 5 个交易日的 std
-    # （假设 recent_days ≥ 5，否则 .iloc[-5:] 会自动取到可用的所有天数）
+    # 3. 處理成交量與 log(volume+1)
+    logv = np.log(df["Volume"][ticker] + 1)
 
-    # 3) 同样用 .history() 取 VIX
-    vix_hist = yf.Ticker("^VIX").history(start=start, end=end)
-    vix_hist.index = pd.to_datetime(vix_hist.index)
-    lag_vix = vix_hist["Close"].iloc[-2]    # 前一交易日 VIX 收盘价
+    # 安全抓倒數第 2 筆，不夠就填 0
+    lag_vol = logv.shift(1).iloc[-1] if len(logv) > 1 else 0.0
+    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else logv.std()
 
-    # 4) 星期 dummy
+    # 4. 處理 VIX 收盤價
+    vix_series = df["Close"]["^VIX"]
+    lag_vix = vix_series.shift(1).iloc[-1] if len(vix_series) > 1 else 0.0
+
+    # 5. 處理 weekday dummy
     wd = dt.weekday()
 
-    # 5) 返回 DataFrame
     return pd.DataFrame([{
-        "lag_vol":        lag_vol,
+        "lag_vol": lag_vol,
         "rolling_std_5d": rolling_std_5d,
-        "lag_vix":        lag_vix,
-        "monday_dummy":      int(wd == 0),
-        "wednesday_dummy":   int(wd == 2),
-        "friday_dummy":      int(wd == 4)
+        "lag_vix": lag_vix,
+        "monday_dummy": int(wd == 0),
+        "wednesday_dummy": int(wd == 2),
+        "friday_dummy": int(wd == 4)
     }])
-
-
-
 
 
 
