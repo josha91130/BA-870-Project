@@ -48,24 +48,36 @@ df_summary = pd.DataFrame(records)
 df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
 
 # └─ Market Feature Functions Per ETF
-def get_market_features_asset(target_date, asset):
+def get_market_features(target_date, ticker, recent_days=10):
+    """
+    Download the selected ticker & VIX up through target_date, then compute:
+      - lag_vol         : yesterday’s log(volume+1)
+      - rolling_std_5d  : 5-day rolling std of log(volume+1)
+      - lag_vix         : yesterday’s VIX close
+      - monday_dummy, wednesday_dummy, friday_dummy
+    """
     dt = pd.to_datetime(target_date)
-    start = (dt - timedelta(days=10)).strftime("%Y-%m-%d")
-    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
-    df = yf.download([asset, "^VIX"], start=start, end=end, progress=False)
+    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
+    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    vol = df["Volume"][asset].loc[:dt.strftime("%Y-%m-%d")]
-    logv = np.log(vol + 1)
+    df = yf.download([ticker,"^VIX"], start=start, end=end, progress=False)
+
+    # ticker volume features
+    vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    logv    = np.log(vol + 1)
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
+    # VIX: compute lagged close instead of same-day
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
     lag_vix = vix_series.shift(1).iloc[-1]
 
+    # weekday dummies
     wd = dt.weekday()
+
     return pd.DataFrame([{
         "lag_vol": lag_vol,
-        "rolling_std_5d": rolling_std_5d,
+        "rolling_std_5d":  rolling_std_5d,
         "lag_vix": lag_vix,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
@@ -105,18 +117,25 @@ std_dict = {
 }
 
 # └─ Main Feature Function
-def get_features_for_date(target_date, asset="SPY"):
-    feat = get_market_features_asset(target_date, asset)
+def get_features_for_date(target_date, ticker):
+    # 1) market
+    feat = get_market_features(target_date, ticker)
+
+    # 2) macro surprise_z (
     for var in urls:
         sel = df_summary[
-            (df_summary['variable'] == var) &
-            (df_summary['release_date'] == pd.to_datetime(target_date).date())
+            (df_summary['variable']==var) & 
+            (df_summary['release_date']==pd.to_datetime(target_date).date())
         ]
         if not sel.empty:
-            actual = sel.iloc[0]['actual']
+            actual   = sel.iloc[0]['actual']
             forecast = sel.iloc[0]['forecast']
-            z = compute_surprise_z(actual, forecast, mean_dict[var], std_dict[var])
+            z = compute_surprise_z(
+                actual, forecast,
+                mean_dict[var], std_dict[var]
+            )
             feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
         else:
             feat.loc[0, f"{var}_surprise_z"] = 0.0
+
     return feat
