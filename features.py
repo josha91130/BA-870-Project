@@ -58,34 +58,20 @@ def get_market_features(target_date, ticker, recent_days=10):
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
-
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    # 1. 檢查資料是否成功抓到
-    if df.empty:
-        raise ValueError(f"❌ No data returned for {ticker} and ^VIX from {start} to {end}.")
+    try:
+        vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+        logv = np.log(vol + 1)
+        lag_vol = logv.shift(1).iloc[-1]
+        rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    # 2. 檢查 ticker 是否在 Volume 欄位中
-    if "Volume" not in df.columns or ticker not in df["Volume"]:
-        raise ValueError(f"❌ {ticker} volume not found in data columns: {df.columns}")
-
-    # 3. 檢查 log(volume+1).shift(1) 有沒有值
-    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    logv = np.log(vol + 1)
-    logv_shifted = logv.shift(1)
-
-    if logv_shifted.dropna().empty:
-        raise ValueError(f"❌ Not enough volume data for {ticker} before {target_date} to compute lag_vol.")
-
-    # 4. 繼續正常運算
-    lag_vol = logv_shifted.iloc[-1]
-    rolling_std_5d = logv.rolling(5).std().iloc[-1]
-
-    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).iloc[-1]
+        vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+        lag_vix = vix_series.shift(1).iloc[-1]
+    except Exception as e:
+        raise IndexError(f"Not enough {ticker} volume data up to {target_date}\n{logv}")
 
     wd = dt.weekday()
-
     return pd.DataFrame([{
         "lag_vol": lag_vol,
         "rolling_std_5d": rolling_std_5d,
