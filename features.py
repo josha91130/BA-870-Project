@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta
 
-# ── Load Historical Data ──
+# ── Load Historical Surprise Data ──
 cpi_yoy_final = pd.read_csv('historical/cpi_yoy_final.csv')
 nonfarm_final = pd.read_csv('historical/nonfarm_final.csv')
 ism_final = pd.read_csv('historical/ism_final.csv')
@@ -46,7 +46,7 @@ def get_actual_forecast_bs4(url):
 
     return release_date, actual, forecast
 
-# ── (B) Build df_summary ──
+# Build df_summary
 records = []
 for var, url in urls.items():
     rd, ac, fc = get_actual_forecast_bs4(url)
@@ -59,8 +59,8 @@ for var, url in urls.items():
 df_summary = pd.DataFrame(records)
 df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
 
-# ── (C) Market Features ──
-def get_market_features(target_date, ticker, recent_days=10):
+# ── (B) Market Feature Engineering ──
+def get_market_features(target_date, ticker="SPY", recent_days=10):
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -75,40 +75,33 @@ def get_market_features(target_date, ticker, recent_days=10):
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
     lag_vix = vix_series.shift(1).iloc[-1]
 
-    prices = df["Close"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    log_returns = np.log(prices).diff()
-    lag_return = log_returns.shift(1).iloc[-1]
-
     wd = dt.weekday()
 
     return pd.DataFrame([{
         "lag_vol": lag_vol,
         "rolling_std_5d": rolling_std_5d,
         "lag_vix": lag_vix,
-        "lag_return": lag_return,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
 
-# ── (D) Surprise Z-score ──
+# ── (C) Surprise Z Calculation ──
 def clean_macro_value(x):
     if x is None:
         return None
+    s = x.replace(",", "").strip()
     try:
-        if x.endswith("K"):
-            return float(x[:-1].replace(",", "")) * 1e3
-        elif x.endswith("%"):
-            return float(x[:-1])
-        else:
-            return float(x.replace(",", ""))
-    except:
+        if s.endswith("K"):
+            return float(s[:-1])
+        return float(s.rstrip("%"))
+    except ValueError:
         return None
 
 def compute_surprise_z(actual, forecast, mean, std):
     a = clean_macro_value(actual)
     f = clean_macro_value(forecast)
-    if a is None or f is None:
+    if None in (a, f, mean, std):
         return None
     return ((a - f) - mean) / std
 
@@ -119,7 +112,6 @@ mean_dict = {
     "Jobless_Claims": jobless_claims_final['Jobless_Claims_surprise'].mean(),
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].mean()
 }
-
 std_dict = {
     "CPI": cpi_yoy_final['CPI_surprise'].std(),
     "NFP": nonfarm_final['NFP_surprise'].std(),
@@ -128,9 +120,12 @@ std_dict = {
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].std()
 }
 
-# ── (E) Final Feature Function ──
-def get_features_for_date(target_date, ticker):
-    feat = get_market_features(target_date, ticker)
+# ── (D) Final Feature Constructor ──
+def get_features_for_date(target_date, asset="SPY"):
+    if asset not in ["SPY", "SSO", "UPRO"]:
+        raise ValueError("Asset must be 'SPY', 'SSO', or 'UPRO'")
+
+    feat = get_market_features(target_date, ticker=asset)
 
     for var in urls:
         sel = df_summary[
