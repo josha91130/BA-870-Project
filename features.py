@@ -12,9 +12,6 @@ nonfarm_final = pd.read_csv('historical/nonfarm_final.csv')
 ism_final = pd.read_csv('historical/ism_final.csv')
 jobless_claims_final = pd.read_csv('historical/jobless_claims_final.csv')
 housing_starts_final = pd.read_csv('historical/housing_starts_final.csv')
-final_data = pd.read_csv('historical/final_data_spy.csv')
-final_data_sso = pd.read_csv('historical/final_data_sso.csv')
-final_data_upro = pd.read_csv('historical/final_data_upro.csv')
 
 # ── (A) Macro URLs ──
 urls = {
@@ -69,14 +66,13 @@ def get_market_features(target_date, ticker="SPY", recent_days=10):
 
     vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
-
-    if len(logv) < 2:
+    if logv.shape[0] < 2:
         raise ValueError(f"Not enough data to compute lag_vol for {ticker} on {target_date}")
-    lag_vol = logv.iloc[-2]
-    rolling_std_5d = logv.rolling(5).std().iloc[-1]
+    lag_vol = logv.shift(1).dropna().iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().dropna().iloc[-1]
 
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).iloc[-1]
+    lag_vix = vix_series.shift(1).dropna().iloc[-1]
 
     wd = dt.weekday()
 
@@ -125,7 +121,7 @@ std_dict = {
 
 # ── (D) Final Feature Constructor ──
 def get_features_for_date(target_date, ticker="SPY"):
-    feat = get_market_features(target_date, ticker)
+    feat = get_market_features(target_date, ticker=ticker)
 
     for var in urls:
         sel = df_summary[
@@ -141,3 +137,4 @@ def get_features_for_date(target_date, ticker="SPY"):
             feat.loc[0, f"{var}_surprise_z"] = 0.0
 
     return feat
+
