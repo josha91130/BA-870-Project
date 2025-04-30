@@ -4,9 +4,8 @@ import pandas as pd
 from features import get_features_for_date
 
 # ── Title ──
-st.title("Get Market & Macro Features for a Specific Date")
+st.title("Get Features for a Specific Date")
 
-# ── Date Picker ──
 target_date = st.date_input(
     "Select a date to get features",
     value=pd.to_datetime("2025-04-25"),
@@ -14,15 +13,12 @@ target_date = st.date_input(
     max_value=pd.to_datetime("2025-12-31")
 )
 
-# ── Button & Feature Computation ──
 if st.button("Get Features"):
-    with st.spinner('Fetching features...'):
-        date_str = target_date.strftime("%Y-%m-%d")
-        features_spy = get_features_for_date(date_str, asset="SPY")
-        features_sso = get_features_for_date(date_str, asset="SSO")
-        features_upro = get_features_for_date(date_str, asset="UPRO")
+    with st.spinner('Getting features...'):
+        features_spy = get_features_for_date(target_date.strftime("%Y-%m-%d"), "SPY")
+        features_sso = get_features_for_date(target_date.strftime("%Y-%m-%d"), "SSO")
+        features_upro = get_features_for_date(target_date.strftime("%Y-%m-%d"), "UPRO")
 
-    # ── Display Tabs ──
     tab1, tab2, tab3 = st.tabs(["SPY Features", "SSO Features", "UPRO Features"])
 
     with tab1:
