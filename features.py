@@ -65,12 +65,15 @@ def get_market_features(target_date, ticker, recent_days=10):
     # ticker volume features
     vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv    = np.log(vol + 1)
-    lag_vol = logv.shift(1).iloc[-1]
-    rolling_std_5d = logv.rolling(5).std().iloc[-1]
+    # lag_vol = logv.shift(1).iloc[-1]
+    lag_vol = logv.shift(1).iloc[-1] if len(logv) > 1 else np.nan
+    # rolling_std_5d = logv.rolling(5).std().iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else np.nan
 
     # VIX: compute lagged close instead of same-day
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).iloc[-1]
+    # lag_vix = vix_series.shift(1).iloc[-1]
+    lag_vix = vix_series.shift(1).iloc[-1] if len(vix_series) > 1 else np.nan
 
     # weekday dummies
     wd = dt.weekday()
