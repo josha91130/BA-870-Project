@@ -49,38 +49,30 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # └─ Market Feature Functions Per ETF
 def get_market_features(target_date, ticker, recent_days=10):
-    """
-    Download the selected ticker & VIX up through target_date, then compute:
-      - lag_vol         : yesterday’s log(volume+1)
-      - rolling_std_5d  : 5-day rolling std of log(volume+1)
-      - lag_vix         : yesterday’s VIX close
-      - monday_dummy, wednesday_dummy, friday_dummy
-    """
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df = yf.download([ticker,"^VIX"], start=start, end=end, progress=False)
+    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    # ticker volume features
-    vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    logv    = np.log(vol + 1)
-    # lag_vol = logv.shift(1).iloc[-1]
+    # --- Detect and extract volume properly ---
+    if isinstance(df.columns, pd.MultiIndex):
+        vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+        vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    else:
+        vol = df[f"{ticker} Volume"].loc[:dt.strftime("%Y-%m-%d")]
+        vix_series = df["^VIX Close"].loc[:dt.strftime("%Y-%m-%d")]
+
+    logv = np.log(vol + 1)
     lag_vol = logv.shift(1).iloc[-1] if len(logv) > 1 else np.nan
-    # rolling_std_5d = logv.rolling(5).std().iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else np.nan
 
-    # VIX: compute lagged close instead of same-day
-    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    # lag_vix = vix_series.shift(1).iloc[-1]
     lag_vix = vix_series.shift(1).iloc[-1] if len(vix_series) > 1 else np.nan
 
-    # weekday dummies
     wd = dt.weekday()
-
     return pd.DataFrame([{
         "lag_vol": lag_vol,
-        "rolling_std_5d":  rolling_std_5d,
+        "rolling_std_5d": rolling_std_5d,
         "lag_vix": lag_vix,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
