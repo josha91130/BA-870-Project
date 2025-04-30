@@ -18,9 +18,9 @@ target_date = st.date_input(
 if st.button("Get Features"):
     with st.spinner('Getting features...'):
         date_str = target_date.strftime("%Y-%m-%d")
-        features_spy = get_features_for_date(date_str, asset="SPY")
-        features_sso = get_features_for_date(date_str, asset="SSO")
-        features_upro = get_features_for_date(date_str, asset="UPRO")
+        features_spy = get_features_for_date(date_str, ticker="SPY")
+        features_sso = get_features_for_date(date_str, ticker="SSO")
+        features_upro = get_features_for_date(date_str, ticker="UPRO")
 
     # ── Display Tabs ──
     tab1, tab2, tab3 = st.tabs(["SPY Features", "SSO Features", "UPRO Features"])
