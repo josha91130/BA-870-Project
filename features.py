@@ -69,14 +69,6 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker):
-    """
-    Download data for the given ticker & VIX up through target_date,
-    then compute:
-      - lag_vol         : yesterday’s log(volume+1)
-      - rolling_std_5d  : 5-day rolling std of log(volume+1)
-      - lag_vix         : yesterday’s VIX close
-      - weekday dummies
-    """
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=7)).strftime("%Y-%m-%d")
     end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -85,6 +77,8 @@ def get_market_features(target_date, ticker):
 
     vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
+    if logv.shift(1).dropna().empty:
+        raise ValueError(f"No shifted volume data available for {ticker} on {target_date}")
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
@@ -111,6 +105,8 @@ def get_market_features_sso(target_date):
 
     vol = df["Volume"]["SSO"].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
+    if logv.shift(1).dropna().empty:
+        raise ValueError(f"No shifted volume data available for SSO on {target_date}")
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
@@ -137,6 +133,8 @@ def get_market_features_upro(target_date):
 
     vol = df["Volume"]["UPRO"].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
+    if logv.shift(1).dropna().empty:
+        raise ValueError(f"No shifted volume data available for UPRO on {target_date}")
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
