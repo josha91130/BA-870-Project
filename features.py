@@ -117,8 +117,7 @@ def get_market_features(target_date, ticker, recent_days=10):
     end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
-    print("==== df.columns ====")
-    print(df.columns)
+
     # 安全地存取 ticker 的 volume 和 VIX 的 close
     try:
         vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
