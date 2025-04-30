@@ -69,25 +69,36 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker, recent_days=10):
-    import pandas as pd, numpy as np, yfinance as yf
+    import pandas as pd
+    import numpy as np
+    import yfinance as yf
     from datetime import timedelta
 
-    dt    = pd.to_datetime(target_date)
+    # 1) 計算時間範圍
+    dt = pd.to_datetime(target_date)
     start = dt - timedelta(days=recent_days)
     end   = dt + timedelta(days=1)
 
+    # 2) 下載行情
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
-    df.index = pd.to_datetime(df.index)               # 保證是 Timestamp
+    df.index = pd.to_datetime(df.index)
 
-    logv = np.log(df[("Volume", ticker)] + 1)         # ← 有值
+    # 3) 處理成交量
+    vol = df[("Volume", ticker)].dropna()
+    logv = np.log(vol + 1)
 
-    # 只改下面 3 行：直接取「前一天」資料，不再用 shift/iloc[-1] 造成越界
-    lag_vol        = logv.iloc[-2]  if len(logv) >= 2 else 0.0
-    rolling_std_5d = logv.iloc[-5:].std() if len(logv) >= 5 else logv.std()
-    lag_vix        = df[("Close", "^VIX")].iloc[-2] if len(df) >= 2 else 0.0
+    # —— 以下 3 行是重點修改 —— 
+    # lag_vol：取倒數第2筆（前一交易日）
+    lag_vol        = logv.iloc[-2]
+    # rolling_std_5d：取倒數第6到倒數第2筆的 std（過去 5 天）
+    rolling_std_5d = logv.iloc[-6:-1].std()
+    # lag_vix：VIX 收盤價倒數第2筆
+    lag_vix        = df[("Close", "^VIX")].dropna().iloc[-2]
 
+    # 4) 星期 dummy
     wd = dt.weekday()
 
+    # 5) 輸出 DataFrame
     return pd.DataFrame([{
         "lag_vol":        lag_vol,
         "rolling_std_5d": rolling_std_5d,
