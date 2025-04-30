@@ -13,7 +13,7 @@ ism_final = pd.read_csv('historical/ism_final.csv')
 jobless_claims_final = pd.read_csv('historical/jobless_claims_final.csv')
 housing_starts_final = pd.read_csv('historical/housing_starts_final.csv')
 
-# ── (A) Macro URLs and Scraping ──
+# ── (A) Macro URLs ──
 urls = {
     "CPI": 'https://www.investing.com/economic-calendar/cpi-733',
     "NFP": 'https://www.investing.com/economic-calendar/nonfarm-payrolls-227',
@@ -27,18 +27,23 @@ def get_actual_forecast_bs4(url):
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "lxml")
+
     date_span = (
         soup.select_one("p.eventDetails span.date")
         or soup.select_one("div.eventHeader span.date")
         or soup.find("span", class_="date")
     )
     release_date = date_span.get_text(strip=True) if date_span else None
+
     fc = soup.select_one("div.arial_14.noBold")
     forecast = fc.get_text(strip=True) if fc else None
+
     ac = soup.select_one("div.arial_14.greenFont, div.arial_14.redFont")
     actual = ac.get_text(strip=True) if ac else None
+
     return release_date, actual, forecast
 
+# Build df_summary
 records = []
 for var, url in urls.items():
     rd, ac, fc = get_actual_forecast_bs4(url)
@@ -52,54 +57,39 @@ df_summary = pd.DataFrame(records)
 df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
 
 # ── (B) Market Feature Engineering ──
-def get_market_features(target_date, ticker="SPY", lookback_days=60):
-    import yfinance as yf
-    import pandas as pd
-    import numpy as np
-    from datetime import timedelta
-
+def get_market_features(target_date, ticker="SPY", recent_days=10):
     dt = pd.to_datetime(target_date)
-    start = dt - timedelta(days=lookback_days)
-    end = dt + timedelta(days=1)
+    max_tries = 3
 
-    df = yf.download([ticker, "^VIX"], start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)
+    for i in range(max_tries):
+        days = recent_days + i * 5
+        start = (dt - timedelta(days=days)).strftime("%Y-%m-%d")
+        end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    print("Downloaded df:")
-    print(df.tail(10))
-    if df.empty:
-        raise ValueError("⚠️ yfinance.download() returned empty DataFrame.")
+        df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    try:
-        vol = df["Volume"][ticker]
-        vix = df["Close"]["^VIX"]
-    except Exception as e:
-        print("df.columns:", df.columns)
-        raise ValueError(f"⚠️ Data structure unexpected: {e}")
+        try:
+            vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+            logv = np.log(vol + 1)
+            lag_vol = logv.shift(1).dropna().iloc[-1]
+            rolling_std_5d = logv.rolling(5).std().dropna().iloc[-1]
 
-    vol = vol[vol.index.date <= dt.date()]
-    vix = vix[vix.index.date <= dt.date()]
+            vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+            lag_vix = vix_series.shift(1).dropna().iloc[-1]
 
-    if vol.empty or vix.empty:
-        raise ValueError(f"No market data returned for {ticker} or VIX up to {target_date}")
+            wd = dt.weekday()
+            return pd.DataFrame([{
+                "lag_vol": lag_vol,
+                "rolling_std_5d": rolling_std_5d,
+                "lag_vix": lag_vix,
+                "monday_dummy": int(wd == 0),
+                "wednesday_dummy": int(wd == 2),
+                "friday_dummy": int(wd == 4)
+            }])
+        except (IndexError, KeyError):
+            continue
 
-    dates = vol.index.unique()
-    last_dates = sorted(dates)[-2:]
-    prev_day, last_day = last_dates
-
-    logv = np.log(vol + 1)
-    lag_vol = float(logv.loc[prev_day])
-    rolling_std_5d = float(logv.loc[:last_day].rolling(5).std().iloc[-1])
-    lag_vix = float(vix.loc[prev_day])
-
-    wd = dt.weekday()
-    return pd.DataFrame([{
-        "lag_vol": lag_vol,
-        "rolling_std_5d": rolling_std_5d,
-        "lag_vix": lag_vix,
-        "monday_dummy": int(wd == 0),
-        "wednesday_dummy": int(wd == 2),
-        "friday_dummy": int(wd == 4)
-    }])
+    raise ValueError(f"Not enough data to compute lag_vol for {ticker} on {target_date}")
 
 # ── (C) Surprise Z Calculation ──
 def clean_macro_value(x):
@@ -137,15 +127,19 @@ std_dict = {
 
 # ── (D) Final Feature Constructor ──
 def get_features_for_date(target_date, ticker="SPY"):
-    date = pd.to_datetime(target_date).date()
-    feat = get_market_features(date, ticker)
+    feat = get_market_features(target_date, ticker=ticker)
+
     for var in urls:
-        sel = df_summary[(df_summary['variable'] == var) & (df_summary['release_date'] == date)]
+        sel = df_summary[
+            (df_summary['variable'] == var) &
+            (df_summary['release_date'] == pd.to_datetime(target_date).date())
+        ]
         if not sel.empty:
             actual = sel.iloc[0]['actual']
             forecast = sel.iloc[0]['forecast']
             z = compute_surprise_z(actual, forecast, mean_dict[var], std_dict[var])
-            feat[f"{var}_surprise_z"] = 0.0 if z is None else z
+            feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
         else:
-            feat[f"{var}_surprise_z"] = 0.0
+            feat.loc[0, f"{var}_surprise_z"] = 0.0
+
     return feat
