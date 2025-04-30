@@ -80,19 +80,21 @@ def get_market_features(target_date, ticker, recent_days=10):
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df = yf.download([ticker,"^VIX"], start=start, end=end, progress=False)
+    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    # ticker volume features
-    vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    logv    = np.log(vol + 1)
+    vol = df["Volume"][ticker].dropna()
+    logv = np.log(vol + 1)
+
+    # 若資料不足，自動延長回看天數
+    if len(logv) < 6:
+        return get_market_features(target_date, ticker, recent_days=recent_days + 5)
+
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    # VIX: compute lagged close instead of same-day
-    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    vix_series = df["Close"]["^VIX"].dropna()
     lag_vix = vix_series.shift(1).iloc[-1]
 
-    # weekday dummies
     wd = dt.weekday()
 
     return pd.DataFrame([{
@@ -107,16 +109,20 @@ def get_market_features(target_date, ticker, recent_days=10):
 def get_market_features_sso(target_date, recent_days=10):
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download(["SSO", "^VIX"], start=start, end=end, progress=False)
 
-    vol = df["Volume"]["SSO"].loc[:dt.strftime("%Y-%m-%d")]
+    vol = df["Volume"]["SSO"].dropna()
     logv = np.log(vol + 1)
+
+    if len(logv) < 6:
+        return get_market_features_sso(target_date, recent_days=recent_days + 5)
+
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    vix_series = df["Close"]["^VIX"].dropna()
     lag_vix = vix_series.shift(1).iloc[-1]
 
     wd = dt.weekday()
@@ -133,16 +139,20 @@ def get_market_features_sso(target_date, recent_days=10):
 def get_market_features_upro(target_date, recent_days=10):
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download(["UPRO", "^VIX"], start=start, end=end, progress=False)
 
-    vol = df["Volume"]["UPRO"].loc[:dt.strftime("%Y-%m-%d")]
+    vol = df["Volume"]["UPRO"].dropna()
     logv = np.log(vol + 1)
+
+    if len(logv) < 6:
+        return get_market_features_upro(target_date, recent_days=recent_days + 5)
+
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    vix_series = df["Close"]["^VIX"].dropna()
     lag_vix = vix_series.shift(1).iloc[-1]
 
     wd = dt.weekday()
