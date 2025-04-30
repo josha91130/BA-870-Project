@@ -63,7 +63,7 @@ def get_market_features(target_date, ticker="SPY", lookback_days=60):
     start = dt - timedelta(days=lookback_days)
     end = dt + timedelta(days=1)
 
-    # download data
+    # download SPY + VIX
     df = yf.download([ticker, "^VIX"],
                      start=start.strftime("%Y-%m-%d"),
                      end=end.strftime("%Y-%m-%d"),
@@ -73,20 +73,29 @@ def get_market_features(target_date, ticker="SPY", lookback_days=60):
     vol = df["Volume"][ticker]
     vix = df["Close"]["^VIX"]
 
-    # filter by calendar date
+    # filter to dates ≤ target_date (calendar date)
     vol = vol[vol.index.date <= dt.date()]
     vix = vix[vix.index.date <= dt.date()]
 
-    # if you want to inspect what you actually got back:
-    # st.write(vol.tail())   # inside Streamlit
-    # st.write(vix.tail())
+    if vol.empty or vix.empty:
+        raise ValueError(f"No market data returned for {ticker} or VIX up to {target_date}")
 
-    # compute logs & lags safely
+    # find the last two available trading dates
+    dates = vol.index.unique()
+    # take the two most recent dates
+    last_dates = sorted(dates)[-2:]
+    prev_day, last_day = last_dates
+
+    # compute log volume + rolling
     logv = np.log(vol + 1)
-    lag_vol = float(logv.iloc[-2]) if len(logv) >= 2 else np.nan
-    rolling_std_5d = float(logv.rolling(5).std().iloc[-1]) if len(logv) >= 5 else np.nan
-    lag_vix = float(vix.iloc[-2]) if len(vix) >= 2 else np.nan
+    lag_vol = float(logv.loc[prev_day])
+    # rolling std uses all days up to last_day
+    rolling_std_5d = float(logv.loc[:last_day].rolling(5).std().iloc[-1])
 
+    # VIX lag
+    lag_vix = float(vix.loc[prev_day])
+
+    # weekday dummies
     wd = dt.weekday()
     return pd.DataFrame([{
         "lag_vol": lag_vol,
