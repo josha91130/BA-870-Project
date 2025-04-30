@@ -6,14 +6,14 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta
 
-# ── Load Historical Surprise Data ──
+# └─ Load Historical Surprise Data
 cpi_yoy_final = pd.read_csv('historical/cpi_yoy_final.csv')
 nonfarm_final = pd.read_csv('historical/nonfarm_final.csv')
 ism_final = pd.read_csv('historical/ism_final.csv')
 jobless_claims_final = pd.read_csv('historical/jobless_claims_final.csv')
 housing_starts_final = pd.read_csv('historical/housing_starts_final.csv')
 
-# ── (A) Macro Scraper ──
+# └─ Macro URLs
 urls = {
     "CPI": 'https://www.investing.com/economic-calendar/cpi-733',
     "NFP": 'https://www.investing.com/economic-calendar/nonfarm-payrolls-227',
@@ -27,44 +27,34 @@ def get_actual_forecast_bs4(url):
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "lxml")
-
     date_span = (
-        soup.select_one("p.eventDetails span.date")
-        or soup.select_one("div.eventHeader span.date")
-        or soup.find("span", class_="date")
+        soup.select_one("p.eventDetails span.date") or
+        soup.select_one("div.eventHeader span.date") or
+        soup.find("span", class_="date")
     )
     release_date = date_span.get_text(strip=True) if date_span else None
-
     fc = soup.select_one("div.arial_14.noBold")
     forecast = fc.get_text(strip=True) if fc else None
-
     ac = soup.select_one("div.arial_14.greenFont, div.arial_14.redFont")
     actual = ac.get_text(strip=True) if ac else None
-
     return release_date, actual, forecast
 
 records = []
 for var, url in urls.items():
     rd, ac, fc = get_actual_forecast_bs4(url)
-    records.append({
-        "variable": var,
-        "release_date": rd,
-        "actual": ac,
-        "forecast": fc
-    })
+    records.append({"variable": var, "release_date": rd, "actual": ac, "forecast": fc})
 
 df_summary = pd.DataFrame(records)
 df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
 
-# ── (B) Market Features ──
-def get_market_features(target_date, ticker, recent_days=10):
+# └─ Market Feature Functions Per ETF
+def get_market_features_asset(target_date, asset):
     dt = pd.to_datetime(target_date)
-    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
+    start = (dt - timedelta(days=10)).strftime("%Y-%m-%d")
     end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    df = yf.download([asset, "^VIX"], start=start, end=end, progress=False)
 
-    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
-
-    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    vol = df["Volume"][asset].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
@@ -73,7 +63,6 @@ def get_market_features(target_date, ticker, recent_days=10):
     lag_vix = vix_series.shift(1).iloc[-1]
 
     wd = dt.weekday()
-
     return pd.DataFrame([{
         "lag_vol": lag_vol,
         "rolling_std_5d": rolling_std_5d,
@@ -83,13 +72,13 @@ def get_market_features(target_date, ticker, recent_days=10):
         "friday_dummy": int(wd == 4)
     }])
 
-# ── (C) Surprise Z Score ──
+# └─ Macro Z-score
+
 def clean_macro_value(x):
     if x is None: return None
     s = x.replace(",", "").strip()
     try:
-        if s.endswith("K"):
-            return float(s[:-1])
+        if s.endswith("K"): return float(s[:-1])
         return float(s.rstrip("%"))
     except ValueError:
         return None
@@ -97,8 +86,7 @@ def clean_macro_value(x):
 def compute_surprise_z(actual, forecast, mean, std):
     a = clean_macro_value(actual)
     f = clean_macro_value(forecast)
-    if None in (a, f, mean, std):
-        return None
+    if None in (a, f, mean, std): return None
     return ((a - f) - mean) / std
 
 mean_dict = {
@@ -108,7 +96,6 @@ mean_dict = {
     "Jobless_Claims": jobless_claims_final['Jobless_Claims_surprise'].mean(),
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].mean()
 }
-
 std_dict = {
     "CPI": cpi_yoy_final['CPI_surprise'].std(),
     "NFP": nonfarm_final['NFP_surprise'].std(),
@@ -117,13 +104,9 @@ std_dict = {
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].std()
 }
 
-# ── (D) Final Feature Function ──
+# └─ Main Feature Function
 def get_features_for_date(target_date, asset="SPY"):
-    if asset not in ["SPY", "SSO", "UPRO"]:
-        raise ValueError("Asset must be 'SPY', 'SSO', or 'UPRO'")
-
-    feat = get_market_features(target_date, ticker=asset)
-
+    feat = get_market_features_asset(target_date, asset)
     for var in urls:
         sel = df_summary[
             (df_summary['variable'] == var) &
@@ -136,5 +119,4 @@ def get_features_for_date(target_date, asset="SPY"):
             feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
         else:
             feat.loc[0, f"{var}_surprise_z"] = 0.0
-
     return feat
