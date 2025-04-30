@@ -16,20 +16,20 @@ target_date = st.date_input(
 if st.button("Get Features"):
     with st.spinner('Getting features...'):
         date_str = target_date.strftime("%Y-%m-%d")
-        features_spy = get_features_for_date(date_str, ticker="SPY")
-        features_sso = get_features_for_date(date_str, ticker="SSO")
-        features_upro = get_features_for_date(date_str, ticker="UPRO")
-
-    tab1, tab2, tab3 = st.tabs(["SPY Features", "SSO Features", "UPRO Features"])
-
-    with tab1:
-        st.subheader("SPY Features")
-        st.dataframe(features_spy)
-
-    with tab2:
-        st.subheader("SSO Features")
-        st.dataframe(features_sso)
-
-    with tab3:
-        st.subheader("UPRO Features")
-        st.dataframe(features_upro)
+        try:
+            features_spy = get_features_for_date(date_str, ticker="SPY")
+            features_sso = get_features_for_date(date_str, ticker="SSO")
+            features_upro = get_features_for_date(date_str, ticker="UPRO")
+        except Exception as e:
+            st.error(f"Error fetching features: {e}")
+        else:
+            tab1, tab2, tab3 = st.tabs(["SPY Features", "SSO Features", "UPRO Features"])
+            with tab1:
+                st.subheader("SPY Features")
+                st.dataframe(features_spy)
+            with tab2:
+                st.subheader("SSO Features")
+                st.dataframe(features_sso)
+            with tab3:
+                st.subheader("UPRO Features")
+                st.dataframe(features_upro)
