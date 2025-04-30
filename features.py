@@ -117,16 +117,10 @@ std_dict = {
 }
 
 # └─ Main Feature Function
-def get_features_for_date(target_date, asset="SPY"):
-    # 1) market features: 針對不同asset選擇正確資料
-    if asset == "SPY":
-        feat = get_market_features(target_date)
-    elif asset == "SSO":
-        feat = get_market_features_sso(target_date)
-    elif asset == "UPRO":
-        feat = get_market_features_upro(target_date)
-    else:
-        raise ValueError("Asset must be 'SPY', 'SSO', or 'UPRO'")
+def get_features_for_date(target_date, ticker):
+    # 1) market
+    feat = get_market_features(target_date, ticker)
+
     # 2) macro surprise_z (
     for var in urls:
         sel = df_summary[
