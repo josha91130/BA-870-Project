@@ -68,76 +68,81 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 
 # ── (B) MARKET FEATURES ──
-#def get_market_features(target_date, recent_days=10):
-    # """
-    # Download SPY & VIX up through target_date, then compute:
-    #   - lag_vol         : yesterday’s log(volume+1)
-    #   - rolling_std_5d  : 5-day rolling std of log(volume+1)
-    #   - lag_vix         : yesterday’s VIX close
-    #   - monday_dummy, wednesday_dummy, friday_dummy
-    # """
-    #dt = pd.to_datetime(target_date)
-    #start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    #end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+# def get_market_features(target_date, ticker, recent_days=10):
+#     """
+#     Download the selected ticker & VIX up through target_date, then compute:
+#       - lag_vol         : yesterday’s log(volume+1)
+#       - rolling_std_5d  : 5-day rolling std of log(volume+1)
+#       - lag_vix         : yesterday’s VIX close
+#       - monday_dummy, wednesday_dummy, friday_dummy
+#     """
+#     dt = pd.to_datetime(target_date)
+#     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
+#     end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    #df = yf.download(["SPY","^VIX"], start=start, end=end, progress=False)
+#     df = yf.download([ticker,"^VIX"], start=start, end=end, progress=False)
 
-    # SPY volume features
-    # #vol     = df["Volume"]["SPY"].loc[:dt.strftime("%Y-%m-%d")]
-    # #logv    = np.log(vol + 1)
-    # #lag_vol = logv.shift(1).iloc[-1]
-    # #rolling_std_5d = logv.rolling(5).std().iloc[-1]
+#     # ticker volume features
+#     vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+#     logv    = np.log(vol + 1)
+#     lag_vol = logv.shift(1).iloc[-1]
+#     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    # # VIX: compute lagged close instead of same-day
-    # #vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    # #lag_vix = vix_series.shift(1).iloc[-1]
+#     # VIX: compute lagged close instead of same-day
+#     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+#     lag_vix = vix_series.shift(1).iloc[-1]
 
-    # # weekday dummies
-    # #wd = dt.weekday()
+#     # weekday dummies
+#     wd = dt.weekday()
 
-    # return pd.DataFrame([{
-    #     "lag_vol": lag_vol,
-    #     "rolling_std_5d":  rolling_std_5d,
-    #     "lag_vix": lag_vix,
-    #     "monday_dummy": int(wd == 0),
-    #     "wednesday_dummy": int(wd == 2),
-    #     "friday_dummy": int(wd == 4)
-    # }])
+#     return pd.DataFrame([{
+#         "lag_vol": lag_vol,
+#         "rolling_std_5d":  rolling_std_5d,
+#         "lag_vix": lag_vix,
+#         "monday_dummy": int(wd == 0),
+#         "wednesday_dummy": int(wd == 2),
+#         "friday_dummy": int(wd == 4)
+#     }])
 def get_market_features(target_date, ticker, recent_days=10):
-    """
-    Download the selected ticker & VIX up through target_date, then compute:
-      - lag_vol         : yesterday’s log(volume+1)
-      - rolling_std_5d  : 5-day rolling std of log(volume+1)
-      - lag_vix         : yesterday’s VIX close
-      - monday_dummy, wednesday_dummy, friday_dummy
-    """
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df = yf.download([ticker,"^VIX"], start=start, end=end, progress=False)
+    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    # ticker volume features
-    vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    logv    = np.log(vol + 1)
-    lag_vol = logv.shift(1).iloc[-1]
+    # Debug block
+    if ticker not in df["Volume"].columns:
+        raise ValueError(f"{ticker} volume column not in data.")
+
+    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    if vol.empty:
+        raise ValueError(f"{ticker}: volume data is empty up to {target_date}")
+
+    logv = np.log(vol + 1)
+    shifted = logv.shift(1)
+    if shifted.dropna().empty:
+        raise ValueError(f"{ticker}: log(volume+1).shift(1) has no valid data up to {target_date}")
+
+    lag_vol = shifted.iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    # VIX: compute lagged close instead of same-day
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).iloc[-1]
+    if vix_series.shift(1).dropna().empty:
+        raise ValueError(f"VIX: shifted data is empty up to {target_date}")
 
-    # weekday dummies
+    lag_vix = vix_series.shift(1).iloc[-1]
     wd = dt.weekday()
 
     return pd.DataFrame([{
         "lag_vol": lag_vol,
-        "rolling_std_5d":  rolling_std_5d,
+        "rolling_std_5d": rolling_std_5d,
         "lag_vix": lag_vix,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
+
+
 # ── (C) SURPRISE Z CALC ──
 def clean_macro_value(x):
     """ '228K'->228.0 (thousands), '2.3%'->2.3, else float(x). """
@@ -182,10 +187,10 @@ def get_features_for_date(target_date, ticker):
     # 1) market
     feat = get_market_features(target_date, ticker)
 
-    # 2) macro surprise_z (
+    # 2) macro surprise_z (同一組)
     for var in urls:
         sel = df_summary[
-            (df_summary['variable']==var) &
+            (df_summary['variable']==var) & 
             (df_summary['release_date']==pd.to_datetime(target_date).date())
         ]
         if not sel.empty:
