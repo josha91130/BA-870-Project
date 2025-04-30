@@ -16,55 +16,50 @@ final_data = pd.read_csv('historical/final_data_spy.csv')
 final_data_sso = pd.read_csv('historical/final_data_sso.csv')
 final_data_upro = pd.read_csv('historical/final_data_upro.csv')
 
-# ── (A) Macro Scraper Setup ──
+# ── (A) Macro URLs ──
 urls = {
     "CPI": 'https://www.investing.com/economic-calendar/cpi-733',
     "NFP": 'https://www.investing.com/economic-calendar/nonfarm-payrolls-227',
     "ISM": 'https://www.investing.com/economic-calendar/ism-manufacturing-pmi-173',
     "Jobless_Claims": 'https://www.investing.com/economic-calendar/initial-jobless-claims-294',
-    "Housing_Starts": 'https://www.investing.com/economic-calendar/housing-starts-149'
+    "Housing_Starts": 'https://www.investing.com/economic-calendar/housing-starts-298'
 }
 
-def scrape_macro_data():
+def get_actual_forecast_bs4(url):
     headers = {"User-Agent": "Mozilla/5.0"}
-    records = []
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "lxml")
 
-    for var, url in urls.items():
-        try:
-            resp = requests.get(url, headers=headers)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "lxml")
+    date_span = (
+        soup.select_one("p.eventDetails span.date")
+        or soup.select_one("div.eventHeader span.date")
+        or soup.find("span", class_="date")
+    )
+    release_date = date_span.get_text(strip=True) if date_span else None
 
-            date_span = (
-                soup.select_one("p.eventDetails span.date")
-                or soup.select_one("div.eventHeader span.date")
-                or soup.find("span", class_="date")
-            )
-            release_date = date_span.get_text(strip=True) if date_span else None
+    fc = soup.select_one("div.arial_14.noBold")
+    forecast = fc.get_text(strip=True) if fc else None
 
-            fc = soup.select_one("div.arial_14.noBold")
-            forecast = fc.get_text(strip=True) if fc else None
+    ac = soup.select_one("div.arial_14.greenFont, div.arial_14.redFont")
+    actual = ac.get_text(strip=True) if ac else None
 
-            ac = soup.select_one("div.arial_14.greenFont, div.arial_14.redFont")
-            actual = ac.get_text(strip=True) if ac else None
+    return release_date, actual, forecast
 
-            records.append({
-                "variable": var,
-                "release_date": release_date,
-                "forecast": forecast,
-                "actual": actual
-            })
-        except Exception as e:
-            print(f"Failed to fetch {var}: {e}")
-            continue
+# ── (B) Build df_summary ──
+records = []
+for var, url in urls.items():
+    rd, ac, fc = get_actual_forecast_bs4(url)
+    records.append({
+        "variable": var,
+        "release_date": rd,
+        "actual": ac,
+        "forecast": fc
+    })
+df_summary = pd.DataFrame(records)
+df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
 
-    df = pd.DataFrame(records)
-    df['release_date'] = pd.to_datetime(df['release_date'], errors="coerce").dt.date
-    return df
-
-df_summary = scrape_macro_data()
-
-# ── (B) Market Feature Engineering ──
+# ── (C) Market Features ──
 def get_market_features(target_date, ticker, recent_days=10):
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
@@ -96,7 +91,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "friday_dummy": int(wd == 4)
     }])
 
-# ── (C) Surprise Z-Score ──
+# ── (D) Surprise Z-score ──
 def clean_macro_value(x):
     if x is None:
         return None
@@ -133,7 +128,7 @@ std_dict = {
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].std()
 }
 
-# ── (D) Final Feature Combiner ──
+# ── (E) Final Feature Function ──
 def get_features_for_date(target_date, ticker):
     feat = get_market_features(target_date, ticker)
 
