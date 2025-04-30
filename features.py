@@ -78,21 +78,15 @@ def get_market_features(target_date, ticker, recent_days=10):
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df = yf.download(ticker, start=start, end=end, progress=False)
-    df_vix = yf.download("^VIX", start=start, end=end, progress=False)
+    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    vol = df["Volume"].loc[:dt.strftime("%Y-%m-%d")]
-    if len(vol) < 2:
-        # 無防呆：硬取一個保底值，避免 crash（你說不加 try）
-        lag_vol = 0.0
-    else:
-        logv = np.log(vol + 1)
-        lag_vol = logv.shift(1).iloc[-1]
+    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    logv = np.log(vol + 1)
+    lag_vol = logv.shift(1).dropna().iloc[-1]  # ← 就這行加了 dropna()
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else 0.0
-
-    vix_series = df_vix["Close"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).iloc[-1] if len(vix_series) >= 2 else 0.0
+    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).dropna().iloc[-1]  # ← 同樣這行也 dropna()
 
     wd = dt.weekday()
 
