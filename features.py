@@ -68,43 +68,76 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 
 # ── (B) MARKET FEATURES ──
+#def get_market_features(target_date, recent_days=10):
+    # """
+    # Download SPY & VIX up through target_date, then compute:
+    #   - lag_vol         : yesterday’s log(volume+1)
+    #   - rolling_std_5d  : 5-day rolling std of log(volume+1)
+    #   - lag_vix         : yesterday’s VIX close
+    #   - monday_dummy, wednesday_dummy, friday_dummy
+    # """
+    #dt = pd.to_datetime(target_date)
+    #start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
+    #end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    #df = yf.download(["SPY","^VIX"], start=start, end=end, progress=False)
+
+    # SPY volume features
+    # #vol     = df["Volume"]["SPY"].loc[:dt.strftime("%Y-%m-%d")]
+    # #logv    = np.log(vol + 1)
+    # #lag_vol = logv.shift(1).iloc[-1]
+    # #rolling_std_5d = logv.rolling(5).std().iloc[-1]
+
+    # # VIX: compute lagged close instead of same-day
+    # #vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    # #lag_vix = vix_series.shift(1).iloc[-1]
+
+    # # weekday dummies
+    # #wd = dt.weekday()
+
+    # return pd.DataFrame([{
+    #     "lag_vol": lag_vol,
+    #     "rolling_std_5d":  rolling_std_5d,
+    #     "lag_vix": lag_vix,
+    #     "monday_dummy": int(wd == 0),
+    #     "wednesday_dummy": int(wd == 2),
+    #     "friday_dummy": int(wd == 4)
+    # }])
 def get_market_features(target_date, ticker, recent_days=10):
+    """
+    Download the selected ticker & VIX up through target_date, then compute:
+      - lag_vol         : yesterday’s log(volume+1)
+      - rolling_std_5d  : 5-day rolling std of log(volume+1)
+      - lag_vix         : yesterday’s VIX close
+      - monday_dummy, wednesday_dummy, friday_dummy
+    """
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
+    df = yf.download([ticker,"^VIX"], start=start, end=end, progress=False)
 
-    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    logv = np.log(vol + 1)
+    # ticker volume features
+    vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    logv    = np.log(vol + 1)
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    if len(logv) < 5:
-        raise ValueError(f"Not enough volume data to compute rolling features for {ticker} on {target_date}")
-
-    lag_vol = logv.shift(1).dropna()
-    if lag_vol.empty:
-        raise ValueError(f"No lag_vol found for {ticker} on {target_date}")
-
-    rolling_std_5d = logv.rolling(5).std().dropna()
-    if rolling_std_5d.empty:
-        raise ValueError(f"No rolling std available for {ticker} on {target_date}")
-
+    # VIX: compute lagged close instead of same-day
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).dropna()
-    if lag_vix.empty:
-        raise ValueError(f"No lag_vix found for {ticker} on {target_date}")
+    lag_vix = vix_series.shift(1).iloc[-1]
 
+    # weekday dummies
     wd = dt.weekday()
 
     return pd.DataFrame([{
-        "lag_vol": lag_vol.iloc[-1],
-        "rolling_std_5d": rolling_std_5d.iloc[-1],
-        "lag_vix": lag_vix.iloc[-1],
+        "lag_vol": lag_vol,
+        "rolling_std_5d":  rolling_std_5d,
+        "lag_vix": lag_vix,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
-
 # ── (C) SURPRISE Z CALC ──
 def clean_macro_value(x):
     """ '228K'->228.0 (thousands), '2.3%'->2.3, else float(x). """
@@ -145,25 +178,45 @@ std_dict = {
 }
 
 # ── (D) FINAL GET_FEATURES FUNCTION ──
-def get_features_for_date(target_date, ticker):
-    # 1) market
-    feat = get_market_features(target_date, ticker)
+def get_market_features(target_date, ticker, recent_days=10): 
+    """
+    Download the selected ticker & VIX up through target_date, then compute:
+      - lag_vol         : yesterday’s log(volume+1)
+      - rolling_std_5d  : 5-day rolling std of log(volume+1)
+      - lag_vix         : yesterday’s VIX close
+      - lag_return      : yesterday’s return (log return)
+      - monday_dummy, wednesday_dummy, friday_dummy
+    """
+    dt = pd.to_datetime(target_date)
+    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
+    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    # 2) macro surprise_z 
-    for var in urls:
-        sel = df_summary[
-            (df_summary['variable']==var) & 
-            (df_summary['release_date']==pd.to_datetime(target_date).date())
-        ]
-        if not sel.empty:
-            actual   = sel.iloc[0]['actual']
-            forecast = sel.iloc[0]['forecast']
-            z = compute_surprise_z(
-                actual, forecast,
-                mean_dict[var], std_dict[var]
-            )
-            feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
-        else:
-            feat.loc[0, f"{var}_surprise_z"] = 0.0
+    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    return feat
+    # --- 處理 volume
+    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    logv = np.log(vol + 1)
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
+
+    # --- 處理 VIX
+    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).iloc[-1]
+
+    # --- 處理 lag return
+    prices = df["Close"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    log_returns = np.log(prices).diff()
+    lag_return = log_returns.shift(1).iloc[-1]
+
+    # --- weekday
+    wd = dt.weekday()
+
+    return pd.DataFrame([{
+        "lag_vol": lag_vol,
+        "rolling_std_5d": rolling_std_5d,
+        "lag_vix": lag_vix,
+        "lag_return": lag_return,
+        "monday_dummy": int(wd == 0),
+        "wednesday_dummy": int(wd == 2),
+        "friday_dummy": int(wd == 4)
+    }])
