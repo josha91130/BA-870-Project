@@ -59,31 +59,37 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 # ── (B) Market Feature Engineering ──
 def get_market_features(target_date, ticker="SPY", recent_days=10):
     dt = pd.to_datetime(target_date)
-    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    max_tries = 3
 
-    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
+    for i in range(max_tries):
+        days = recent_days + i * 5
+        start = (dt - timedelta(days=days)).strftime("%Y-%m-%d")
+        end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    logv = np.log(vol + 1)
-    if logv.shape[0] < 2:
-        raise ValueError(f"Not enough data to compute lag_vol for {ticker} on {target_date}")
-    lag_vol = logv.shift(1).dropna().iloc[-1]
-    rolling_std_5d = logv.rolling(5).std().dropna().iloc[-1]
+        df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).dropna().iloc[-1]
+        try:
+            vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+            logv = np.log(vol + 1)
+            lag_vol = logv.shift(1).dropna().iloc[-1]
+            rolling_std_5d = logv.rolling(5).std().dropna().iloc[-1]
 
-    wd = dt.weekday()
+            vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+            lag_vix = vix_series.shift(1).dropna().iloc[-1]
 
-    return pd.DataFrame([{
-        "lag_vol": lag_vol,
-        "rolling_std_5d": rolling_std_5d,
-        "lag_vix": lag_vix,
-        "monday_dummy": int(wd == 0),
-        "wednesday_dummy": int(wd == 2),
-        "friday_dummy": int(wd == 4)
-    }])
+            wd = dt.weekday()
+            return pd.DataFrame([{
+                "lag_vol": lag_vol,
+                "rolling_std_5d": rolling_std_5d,
+                "lag_vix": lag_vix,
+                "monday_dummy": int(wd == 0),
+                "wednesday_dummy": int(wd == 2),
+                "friday_dummy": int(wd == 4)
+            }])
+        except (IndexError, KeyError):
+            continue
+
+    raise ValueError(f"Not enough data to compute lag_vol for {ticker} on {target_date}")
 
 # ── (C) Surprise Z Calculation ──
 def clean_macro_value(x):
