@@ -22,6 +22,8 @@ urls = {
     "Housing_Starts": 'https://www.investing.com/economic-calendar/housing-starts-298'
 }
 
+# Scrape macro releases once
+
 def get_actual_forecast_bs4(url):
     headers = {"User-Agent": "Mozilla/5.0"}
     resp = requests.get(url, headers=headers)
@@ -43,7 +45,6 @@ def get_actual_forecast_bs4(url):
 
     return release_date, actual, forecast
 
-# Build df_summary
 records = []
 for var, url in urls.items():
     rd, ac, fc = get_actual_forecast_bs4(url)
@@ -57,39 +58,43 @@ df_summary = pd.DataFrame(records)
 df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
 
 # ── (B) Market Feature Engineering ──
-def get_market_features(target_date, ticker="SPY", recent_days=10):
+def get_market_features(target_date, ticker="SPY", lookback_days=60):
     dt = pd.to_datetime(target_date)
-    max_tries = 3
+    start = dt - pd.Timedelta(days=lookback_days)
+    end = dt + pd.Timedelta(days=1)
 
-    for i in range(max_tries):
-        days = recent_days + i * 5
-        start = (dt - timedelta(days=days)).strftime("%Y-%m-%d")
-        end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    df = yf.download([ticker, "^VIX"], start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)
 
-        df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
+    # Extract series
+    try:
+        vol_series = df['Volume'][ticker]
+        vix_series = df['Close']['^VIX']
+    except KeyError:
+        raise ValueError(f"Market data missing for {ticker} or VIX.")
 
-        try:
-            vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-            logv = np.log(vol + 1)
-            lag_vol = logv.shift(1).dropna().iloc[-1]
-            rolling_std_5d = logv.rolling(5).std().dropna().iloc[-1]
+    # Filter to business days up to target date
+    vol_to_date = vol_series.loc[vol_series.index <= dt]
+    vix_to_date = vix_series.loc[vix_series.index <= dt]
 
-            vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-            lag_vix = vix_series.shift(1).dropna().iloc[-1]
+    if len(vol_to_date) < 6 or len(vix_to_date) < 2:
+        raise ValueError(f"Not enough market data for {ticker} on {target_date}")
 
-            wd = dt.weekday()
-            return pd.DataFrame([{
-                "lag_vol": lag_vol,
-                "rolling_std_5d": rolling_std_5d,
-                "lag_vix": lag_vix,
-                "monday_dummy": int(wd == 0),
-                "wednesday_dummy": int(wd == 2),
-                "friday_dummy": int(wd == 4)
-            }])
-        except (IndexError, KeyError):
-            continue
+    # Compute features
+    logv = np.log(vol_to_date + 1)
+    lag_vol = float(logv.iloc[-2])
+    rolling_std_5d = float(logv.rolling(5).std().iloc[-1])
+    lag_vix = float(vix_to_date.iloc[-2])
 
-    raise ValueError(f"Not enough data to compute lag_vol for {ticker} on {target_date}")
+    wd = dt.weekday()
+    features = {
+        "lag_vol": lag_vol,
+        "rolling_std_5d": rolling_std_5d,
+        "lag_vix": lag_vix,
+        "monday_dummy": int(wd == 0),
+        "wednesday_dummy": int(wd == 2),
+        "friday_dummy": int(wd == 4)
+    }
+    return pd.DataFrame([features])
 
 # ── (C) Surprise Z Calculation ──
 def clean_macro_value(x):
@@ -102,6 +107,7 @@ def clean_macro_value(x):
         return float(s.rstrip("%"))
     except ValueError:
         return None
+
 
 def compute_surprise_z(actual, forecast, mean, std):
     a = clean_macro_value(actual)
@@ -127,20 +133,17 @@ std_dict = {
 
 # ── (D) Final Feature Constructor ──
 def get_features_for_date(target_date, ticker="SPY"):
-    feat = get_market_features(target_date, ticker=ticker)
+    date = pd.to_datetime(target_date).date()
+    feat = get_market_features(date, ticker)
 
     for var in urls:
-        sel = df_summary[
-            (df_summary['variable'] == var) &
-            (df_summary['release_date'] == pd.to_datetime(target_date).date())
-        ]
+        sel = df_summary[ (df_summary['variable'] == var) & (df_summary['release_date'] == date) ]
         if not sel.empty:
             actual = sel.iloc[0]['actual']
             forecast = sel.iloc[0]['forecast']
             z = compute_surprise_z(actual, forecast, mean_dict[var], std_dict[var])
-            feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
+            feat[f"{var}_surprise_z"] = 0.0 if z is None else z
         else:
-            feat.loc[0, f"{var}_surprise_z"] = 0.0
+            feat[f"{var}_surprise_z"] = 0.0
 
     return feat
-
