@@ -69,37 +69,28 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker, recent_days=10):
-    import yfinance as yf
-    import numpy as np
-    import pandas as pd
     from datetime import timedelta
+    import pandas as pd
+    import numpy as np
+    import yfinance as yf
 
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    # 下載單一 ticker 和 VIX
+    # 單獨抓 ticker 和 VIX，避免 MultiIndex
     df = yf.download(ticker, start=start, end=end, progress=False)
     df_vix = yf.download("^VIX", start=start, end=end, progress=False)
 
-    if df.empty or df_vix.empty:
-        raise ValueError(f"資料抓不到：{ticker} 或 VIX")
-
-    # volume 特徵
-    try:
-        vol = df["Volume"].loc[:dt.strftime("%Y-%m-%d")]
-        logv = np.log(vol + 1)
-        lag_vol = logv.shift(1).iloc[-1]
-        rolling_std_5d = logv.rolling(5).std().iloc[-1]
-    except:
-        raise ValueError(f"{ticker} volume 特徵計算失敗")
+    # Volume 特徵
+    vol = df["Volume"].loc[:dt.strftime("%Y-%m-%d")]
+    logv = np.log(vol + 1)
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
     # VIX 特徵
-    try:
-        vix_series = df_vix["Close"].loc[:dt.strftime("%Y-%m-%d")]
-        lag_vix = vix_series.shift(1).iloc[-1]
-    except:
-        raise ValueError(f"VIX 特徵計算失敗")
+    vix_series = df_vix["Close"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).iloc[-1]
 
     wd = dt.weekday()
 
@@ -111,6 +102,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
+
 
 
 # def get_market_features(target_date, ticker, recent_days=10):
