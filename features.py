@@ -80,7 +80,7 @@ def get_market_features(target_date, ticker, recent_days=10):
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    print("[DEBUG] df.columns:", df.columns)  # 你可以先看看欄位長什麼樣子
+    print("[DEBUG] df.columns:", df.columns)  # 看欄位結構
 
     vol = df[("Volume", ticker)].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
@@ -105,10 +105,6 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
-
-
-
-
 
 
 
