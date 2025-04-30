@@ -53,36 +53,44 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) Market Feature Engineering ──
 def get_market_features(target_date, ticker="SPY", lookback_days=60):
-    import numpy as np
-    import pandas as pd
-    import yfinance as yf
-    from datetime import timedelta
-
     dt = pd.to_datetime(target_date)
-    start = (dt - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
-    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    start = dt - pd.Timedelta(days=lookback_days)
+    end = dt + pd.Timedelta(days=1)
 
-    # 下载 SPY 和 VIX
-    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
+    df = yf.download([ticker, "^VIX"], start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), progress=False)
 
     try:
-        # 用字符串切片，避免时区/索引不匹配
-        vol = df["Volume"][ticker].loc[: dt.strftime("%Y-%m-%d")]
-        logv = np.log(vol + 1)
-        lag_vol = logv.shift(1).iloc[-1]         # 前一日成交量
-        rolling_std_5d = logv.rolling(5).std().iloc[-1]  # 最近 5 日波动率
+        vol_series = df['Volume'][ticker]
+        vix_series = df['Close']['^VIX']
+    except KeyError as e:
+        raise ValueError(f"Market data missing for {ticker} or VIX: {e}")
 
-        vix = df["Close"]["^VIX"].loc[: dt.strftime("%Y-%m-%d")]
-        lag_vix = vix.shift(1).iloc[-1]          # 前一日 VIX
-    except Exception as e:
-        # 如果这里出错，会把底层异常信息抛出，方便调试
-        raise ValueError(f"Failed computing market features: {e}")
+    vol_to_date = vol_series[vol_series.index <= dt]
+    vix_to_date = vix_series[vix_series.index <= dt]
+
+    logv = np.log(vol_to_date + 1)
+
+    # Safe lag and rolling calculations
+    if len(logv) >= 2:
+        lag_vol = float(logv.iloc[-2])
+    else:
+        lag_vol = float(np.nan)
+
+    if len(logv) >= 5:
+        rolling_std_5d = float(logv.rolling(5).std().iloc[-1])
+    else:
+        rolling_std_5d = float(np.nan)
+
+    if len(vix_to_date) >= 2:
+        lag_vix = float(vix_to_date.iloc[-2])
+    else:
+        lag_vix = float(np.nan)
 
     wd = dt.weekday()
     return pd.DataFrame([{
-        "lag_vol": float(lag_vol),
-        "rolling_std_5d": float(rolling_std_5d),
-        "lag_vix": float(lag_vix),
+        "lag_vol": lag_vol,
+        "rolling_std_5d": rolling_std_5d,
+        "lag_vix": lag_vix,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
