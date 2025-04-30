@@ -74,31 +74,28 @@ def get_market_features(target_date, ticker, recent_days=10):
     import yfinance as yf
     from datetime import timedelta
 
-    # 1) 計算時間範圍
+    # 1) 目标日期与区间
     dt = pd.to_datetime(target_date)
     start = dt - timedelta(days=recent_days)
     end   = dt + timedelta(days=1)
 
-    # 2) 下載行情
-    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
-    df.index = pd.to_datetime(df.index)
+    # 2) 分别下载 ticker 和 VIX
+    df_ticker = yf.download(ticker, start=start, end=end, progress=False)
+    df_vix    = yf.download("^VIX", start=start, end=end, progress=False)
 
-    # 3) 處理成交量
-    vol = df[("Volume", ticker)].dropna()
+    # 3) 计算 log(volume+1) 特征
+    vol = df_ticker["Volume"]
     logv = np.log(vol + 1)
+    lag_vol        = logv.shift(1).iloc[-1]           # 前一交易日的 log(volume+1)
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]   # 最近 5 个交易日的 std
 
-    # —— 以下 3 行是重點修改 —— 
-    # lag_vol：取倒數第2筆（前一交易日）
-    lag_vol        = logv.iloc[-2]
-    # rolling_std_5d：取倒數第6到倒數第2筆的 std（過去 5 天）
-    rolling_std_5d = logv.iloc[-6:-1].std()
-    # lag_vix：VIX 收盤價倒數第2筆
-    lag_vix        = df[("Close", "^VIX")].dropna().iloc[-2]
+    # 4) 计算 VIX lag 特征
+    lag_vix = df_vix["Close"].shift(1).iloc[-1]       # 前一交易日的 VIX 收盘
 
-    # 4) 星期 dummy
+    # 5) 星期 Dummy
     wd = dt.weekday()
 
-    # 5) 輸出 DataFrame
+    # 6) 返回 DataFrame
     return pd.DataFrame([{
         "lag_vol":        lag_vol,
         "rolling_std_5d": rolling_std_5d,
