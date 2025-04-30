@@ -55,7 +55,10 @@ def get_market_features(target_date, ticker='SPY', recent_days=10):
 
     df = yf.download([ticker, '^VIX'], start=start, end=end, progress=False)
 
-    # Use string slicing to avoid datetime.date mismatch
+    # Defensive check
+    if ticker not in df['Volume'].columns:
+        raise ValueError(f"Ticker {ticker} volume not found in downloaded data")
+
     vol = df['Volume'][ticker].loc[:dt.strftime('%Y-%m-%d')]
     logv = np.log(vol + 1)
     lag_vol = logv.shift(1).iloc[-1] if len(logv) >= 2 else np.nan
