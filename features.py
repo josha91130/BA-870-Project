@@ -111,12 +111,14 @@ def get_market_features(target_date, ticker, recent_days=10):
       - lag_vix         : yesterday’s VIX close
       - monday_dummy, wednesday_dummy, friday_dummy
     """
+
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
-
+    print("==== df.columns ====")
+    print(df.columns)
     # 安全地存取 ticker 的 volume 和 VIX 的 close
     try:
         vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
