@@ -148,7 +148,7 @@ def get_features_for_date(target_date, ticker):
     # 1) market
     feat = get_market_features(target_date, ticker)
 
-    # 2) macro surprise_z (同一組)
+    # 2) macro surprise_z 
     for var in urls:
         sel = df_summary[
             (df_summary['variable']==var) & 
@@ -166,7 +166,3 @@ def get_features_for_date(target_date, ticker):
             feat.loc[0, f"{var}_surprise_z"] = 0.0
 
     return feat
-# git add, commit, push
-os.system('git add features.py')
-os.system('git commit -m "Add features.py with get_features_for_date function"')
-os.system('git push')
