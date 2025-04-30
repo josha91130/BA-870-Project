@@ -53,7 +53,7 @@ def get_market_features(target_date, ticker='SPY', recent_days=10):
     start = (dt - timedelta(days=recent_days)).strftime('%Y-%m-%d')
     end   = (dt + timedelta(days=1)).strftime('%Y-%m-%d')
 
-    # Download price, volume, and VIX
+    # Download price, volume, and VIX\    
     df = yf.download([ticker, '^VIX'], start=start, end=end, progress=False)
 
     # Volume features
