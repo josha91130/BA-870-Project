@@ -3,10 +3,9 @@ import streamlit as st
 import pandas as pd
 from features import get_features_for_date
 
-# ── Title ──
-st.title("Get Market and Macro Features for a Specific Date")
+st.set_page_config(page_title="Get Features", layout="wide")
+st.title("Get Features for a Specific Date")
 
-# ── Date Input ──
 target_date = st.date_input(
     "Select a date to get features",
     value=pd.to_datetime("2025-04-25"),
@@ -14,7 +13,6 @@ target_date = st.date_input(
     max_value=pd.to_datetime("2025-12-31")
 )
 
-# ── Button + Feature Extraction ──
 if st.button("Get Features"):
     with st.spinner('Getting features...'):
         date_str = target_date.strftime("%Y-%m-%d")
@@ -22,7 +20,6 @@ if st.button("Get Features"):
         features_sso = get_features_for_date(date_str, ticker="SSO")
         features_upro = get_features_for_date(date_str, ticker="UPRO")
 
-    # ── Display Tabs ──
     tab1, tab2, tab3 = st.tabs(["SPY Features", "SSO Features", "UPRO Features"])
 
     with tab1:
