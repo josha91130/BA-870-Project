@@ -67,19 +67,30 @@ def get_market_features(target_date, ticker="SPY", recent_days=10):
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
+    # --- volume
     vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
-    lag_vol = logv.shift(1).iloc[-1]
-    rolling_std_5d = logv.rolling(5).std().iloc[-1]
+    logv_shifted = logv.shift(1).dropna()
+    if len(logv_shifted) == 0:
+        raise ValueError(f"Not enough shifted volume data available for {ticker} on {target_date}")
+    lag_vol = logv_shifted.iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().dropna()
+    if len(rolling_std_5d) == 0:
+        raise ValueError(f"Not enough data to compute rolling std for {ticker} on {target_date}")
+    rolling_std = rolling_std_5d.iloc[-1]
 
+    # --- VIX
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).iloc[-1]
+    lag_vix_series = vix_series.shift(1).dropna()
+    if len(lag_vix_series) == 0:
+        raise ValueError(f"Not enough VIX data for {target_date}")
+    lag_vix = lag_vix_series.iloc[-1]
 
     wd = dt.weekday()
 
     return pd.DataFrame([{
         "lag_vol": lag_vol,
-        "rolling_std_5d": rolling_std_5d,
+        "rolling_std_5d": rolling_std,
         "lag_vix": lag_vix,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
