@@ -4,6 +4,7 @@ from features import get_features_for_date
 
 st.title("Get Features for a Specific Date")
 
+# Date input widget
 target_date = st.date_input(
     "Select a date to get features",
     value=pd.to_datetime("2025-04-25"),
@@ -11,22 +12,19 @@ target_date = st.date_input(
     max_value=pd.to_datetime("2025-12-31")
 )
 
+# Fetch and display features when button is clicked
 if st.button("Get Features"):
     with st.spinner('Getting features...'):
-        features_spy = get_features_for_date(target_date.strftime("%Y-%m-%d"), "SPY")
-        features_sso = get_features_for_date(target_date.strftime("%Y-%m-%d"), "SSO")
-        features_upro = get_features_for_date(target_date.strftime("%Y-%m-%d"), "UPRO")
+        date_str = target_date.strftime("%Y-%m-%d")
+        features = {
+            "SPY": get_features_for_date(date_str, "SPY"),
+            "SSO": get_features_for_date(date_str, "SSO"),
+            "UPRO": get_features_for_date(date_str, "UPRO"),
+        }
 
-    tab1, tab2, tab3 = st.tabs(["SPY Features", "SSO Features", "UPRO Features"])
-
-    with tab1:
-        st.subheader("SPY Features")
-        st.dataframe(features_spy)
-
-    with tab2:
-        st.subheader("SSO Features")
-        st.dataframe(features_sso)
-
-    with tab3:
-        st.subheader("UPRO Features")
-        st.dataframe(features_upro)
+    # Display in tabs
+    tabs = st.tabs(["SPY Features", "SSO Features", "UPRO Features"])
+    for tab, name in zip(tabs, features):
+        with tab:
+            st.subheader(f"{name} Features")
+            st.dataframe(features[name])
