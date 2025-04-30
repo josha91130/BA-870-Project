@@ -68,62 +68,28 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 
 # ── (B) MARKET FEATURES ──
-def get_market_features(target_date, ticker, recent_days=10):
+def get_market_features(target_date, ticker):
     """
-    Download the selected ticker & VIX up through target_date, then compute:
+    Download data for the given ticker & VIX up through target_date,
+    then compute:
       - lag_vol         : yesterday’s log(volume+1)
       - rolling_std_5d  : 5-day rolling std of log(volume+1)
       - lag_vix         : yesterday’s VIX close
-      - monday_dummy, wednesday_dummy, friday_dummy
+      - weekday dummies
     """
     dt = pd.to_datetime(target_date)
-    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    start = (dt - timedelta(days=7)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    vol = df["Volume"][ticker].dropna()
+    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
-
-    # 若資料不足，自動延長回看天數
-    if len(logv) < 6:
-        return get_market_features(target_date, ticker, recent_days=recent_days + 5)
-
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    vix_series = df["Close"]["^VIX"].dropna()
-    lag_vix = vix_series.shift(1).iloc[-1]
-
-    wd = dt.weekday()
-
-    return pd.DataFrame([{
-        "lag_vol": lag_vol,
-        "rolling_std_5d":  rolling_std_5d,
-        "lag_vix": lag_vix,
-        "monday_dummy": int(wd == 0),
-        "wednesday_dummy": int(wd == 2),
-        "friday_dummy": int(wd == 4)
-    }])
-
-def get_market_features_sso(target_date, recent_days=10):
-    dt = pd.to_datetime(target_date)
-    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
-
-    df = yf.download(["SSO", "^VIX"], start=start, end=end, progress=False)
-
-    vol = df["Volume"]["SSO"].dropna()
-    logv = np.log(vol + 1)
-
-    if len(logv) < 6:
-        return get_market_features_sso(target_date, recent_days=recent_days + 5)
-
-    lag_vol = logv.shift(1).iloc[-1]
-    rolling_std_5d = logv.rolling(5).std().iloc[-1]
-
-    vix_series = df["Close"]["^VIX"].dropna()
-    lag_vix = vix_series.shift(1).iloc[-1]
+    vix = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix.shift(1).iloc[-1]
 
     wd = dt.weekday()
 
@@ -136,24 +102,46 @@ def get_market_features_sso(target_date, recent_days=10):
         "friday_dummy": int(wd == 4)
     }])
 
-def get_market_features_upro(target_date, recent_days=10):
+def get_market_features_sso(target_date):
     dt = pd.to_datetime(target_date)
-    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    start = (dt - timedelta(days=7)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df = yf.download(["UPRO", "^VIX"], start=start, end=end, progress=False)
+    df = yf.download(["SSO", "^VIX"], start=start, end=end, progress=False)
 
-    vol = df["Volume"]["UPRO"].dropna()
+    vol = df["Volume"]["SSO"].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
-
-    if len(logv) < 6:
-        return get_market_features_upro(target_date, recent_days=recent_days + 5)
-
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    vix_series = df["Close"]["^VIX"].dropna()
-    lag_vix = vix_series.shift(1).iloc[-1]
+    vix = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix.shift(1).iloc[-1]
+
+    wd = dt.weekday()
+
+    return pd.DataFrame([{
+        "lag_vol": lag_vol,
+        "rolling_std_5d": rolling_std_5d,
+        "lag_vix": lag_vix,
+        "monday_dummy": int(wd == 0),
+        "wednesday_dummy": int(wd == 2),
+        "friday_dummy": int(wd == 4)
+    }])
+
+def get_market_features_upro(target_date):
+    dt = pd.to_datetime(target_date)
+    start = (dt - timedelta(days=7)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    df = yf.download(["UPRO", "^VIX"], start=start, end=end, progress=False)
+
+    vol = df["Volume"]["UPRO"].loc[:dt.strftime("%Y-%m-%d")]
+    logv = np.log(vol + 1)
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
+
+    vix = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix.shift(1).iloc[-1]
 
     wd = dt.weekday()
 
