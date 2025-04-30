@@ -79,13 +79,13 @@ def get_market_features(target_date, ticker, recent_days=10):
     end = dt + timedelta(days=1)
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
-
-    df.index = pd.to_datetime(df.index)  # 確保 index 是 Timestamp
+    df.index = pd.to_datetime(df.index)
 
     logv = np.log(df[("Volume", ticker)] + 1)
-    lag_vol = logv.shift(1).iloc[-1]
-    rolling_std_5d = logv.rolling(5).std().iloc[-1]
-    lag_vix = df[("Close", "^VIX")].shift(1).iloc[-1]
+
+    lag_vol = logv.shift(1).iloc[-1] if len(logv) > 1 else 0.0
+    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else 0.0
+    lag_vix = df[("Close", "^VIX")].shift(1).iloc[-1] if len(df) > 1 else 0.0
 
     wd = dt.weekday()
 
