@@ -81,23 +81,11 @@ def get_market_features(target_date, ticker, recent_days=10):
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
     df.index = pd.to_datetime(df.index)
 
-    try:
-        vol_series = df[("Volume", ticker)]
-        logv = np.log(vol_series + 1)
+    logv = np.log(df[("Volume", ticker)] + 1)
 
-        # 使用 dropna 保證你選到的是非 NaN 的值
-        lag_vol = logv.shift(1).dropna().iloc[-1] if not logv.shift(1).dropna().empty else np.nan
-        rolling_std_5d = logv.rolling(5).std().dropna().iloc[-1] if not logv.rolling(5).std().dropna().empty else np.nan
-    except Exception as e:
-        print(f"[ERROR] Volume-related error: {e}")
-        lag_vol, rolling_std_5d = np.nan, np.nan
-
-    try:
-        vix_close = df[("Close", "^VIX")]
-        lag_vix = vix_close.shift(1).dropna().iloc[-1] if not vix_close.shift(1).dropna().empty else np.nan
-    except Exception as e:
-        print(f"[ERROR] VIX-related error: {e}")
-        lag_vix = np.nan
+    lag_vol = logv.shift(1).iloc[-1] if len(logv.shift(1)) > 0 else 0.0
+    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv.rolling(5).std()) > 0 else 0.0
+    lag_vix = df[("Close", "^VIX")].shift(1).iloc[-1] if len(df[("Close", "^VIX")].shift(1)) > 0 else 0.0
 
     wd = dt.weekday()
 
@@ -109,6 +97,9 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
+
+
+
 
 
 
