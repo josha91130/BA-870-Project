@@ -74,27 +74,28 @@ def get_market_features(target_date, ticker, recent_days=10):
     import yfinance as yf
     from datetime import timedelta
 
-    # 1) 计算目标和区间
+    # 1) 目标日期、区间
     dt = pd.to_datetime(target_date)
     start = dt - timedelta(days=recent_days)
     end   = dt + timedelta(days=1)
 
-    # 2) 下载并计算 ETF 的成交量特征
-    df_vol = yf.download(ticker, start=start, end=end, progress=False)
-    df_vol.index = pd.to_datetime(df_vol.index)
-    logv = np.log(df_vol["Volume"] + 1)
+    # 2) 用 .history() 分别取单独 ETF 数据
+    hist = yf.Ticker(ticker).history(start=start, end=end)
+    hist.index = pd.to_datetime(hist.index)
+    vol = hist["Volume"]
+    logv = np.log(vol + 1)
 
-    # —— 关键三行 —— 
-    lag_vol        = logv.shift(1).iloc[-1]           # 前一交易日 log(volume+1)
-    rolling_std_5d = logv.rolling(window=5).std().iloc[-1]  # 最近 5 日 std
-    # （这里默认你的 recent_days>=5，所以有足够数据）
+    # —— 核心三行 —— 
+    lag_vol        = logv.iloc[-2]          # 前一交易日（4/24）的 log(volume+1)
+    rolling_std_5d = logv.iloc[-5:].std()   # 最近 5 个交易日的 std
+    # （假设 recent_days ≥ 5，否则 .iloc[-5:] 会自动取到可用的所有天数）
 
-    # 3) 下载并计算 VIX 特征
-    df_vix = yf.download("^VIX", start=start, end=end, progress=False)
-    df_vix.index = pd.to_datetime(df_vix.index)
-    lag_vix = df_vix["Close"].shift(1).iloc[-1]       # 前一交易日 VIX 收盘
+    # 3) 同样用 .history() 取 VIX
+    vix_hist = yf.Ticker("^VIX").history(start=start, end=end)
+    vix_hist.index = pd.to_datetime(vix_hist.index)
+    lag_vix = vix_hist["Close"].iloc[-2]    # 前一交易日 VIX 收盘价
 
-    # 4) 星期 Dummy
+    # 4) 星期 dummy
     wd = dt.weekday()
 
     # 5) 返回 DataFrame
