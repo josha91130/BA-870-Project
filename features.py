@@ -58,23 +58,33 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) Market Feature Engineering ──
 def get_market_features(target_date, ticker="SPY", recent_days=10):
-    dt = pd.to_datetime(target_date)
+    import numpy as np
+    import pandas as pd
+    import yfinance as yf
+    from datetime import timedelta
+
+    dt    = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    # --- Volume & log ---
+    vol = df["Volume"][ticker]
+    vol = vol[vol.index.date <= dt.date()]
     logv = np.log(vol + 1)
 
-    lag_vol = logv.iloc[-2] if len(logv) >= 2 else np.nan
+    # fallback to NaN if not enough history
+    lag_vol        = logv.iloc[-2] if len(logv) >= 2 else np.nan
     rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else np.nan
 
-    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).iloc[-1] if len(vix_series) >= 2 else np.nan
+    # --- VIX lag ---
+    vix = df["Close"]["^VIX"]
+    vix = vix[vix.index.date <= dt.date()]
+    lag_vix = vix.shift(1).iloc[-1] if len(vix) >= 2 else np.nan
 
+    # weekday dummies
     wd = dt.weekday()
-
     return pd.DataFrame([{
         "lag_vol": lag_vol,
         "rolling_std_5d": rolling_std_5d,
