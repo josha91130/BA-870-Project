@@ -104,6 +104,58 @@ def get_market_features(target_date, ticker, recent_days=10):
         "friday_dummy": int(wd == 4)
     }])
 
+def get_market_features_sso(target_date, recent_days=10):
+    dt = pd.to_datetime(target_date)
+    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    df = yf.download(["SSO", "^VIX"], start=start, end=end, progress=False)
+
+    vol = df["Volume"]["SSO"].loc[:dt.strftime("%Y-%m-%d")]
+    logv = np.log(vol + 1)
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
+
+    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).iloc[-1]
+
+    wd = dt.weekday()
+
+    return pd.DataFrame([{
+        "lag_vol": lag_vol,
+        "rolling_std_5d": rolling_std_5d,
+        "lag_vix": lag_vix,
+        "monday_dummy": int(wd == 0),
+        "wednesday_dummy": int(wd == 2),
+        "friday_dummy": int(wd == 4)
+    }])
+
+def get_market_features_upro(target_date, recent_days=10):
+    dt = pd.to_datetime(target_date)
+    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    df = yf.download(["UPRO", "^VIX"], start=start, end=end, progress=False)
+
+    vol = df["Volume"]["UPRO"].loc[:dt.strftime("%Y-%m-%d")]
+    logv = np.log(vol + 1)
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
+
+    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).iloc[-1]
+
+    wd = dt.weekday()
+
+    return pd.DataFrame([{
+        "lag_vol": lag_vol,
+        "rolling_std_5d": rolling_std_5d,
+        "lag_vix": lag_vix,
+        "monday_dummy": int(wd == 0),
+        "wednesday_dummy": int(wd == 2),
+        "friday_dummy": int(wd == 4)
+    }])
+
 # ── (C) SURPRISE Z CALC ──
 def clean_macro_value(x):
     """ '228K'->228.0 (thousands), '2.3%'->2.3, else float(x). """
@@ -144,25 +196,13 @@ std_dict = {
 }
 
 # ── (D) FINAL GET_FEATURES FUNCTION ──
-def get_features_for_date(target_date, ticker):
-    # 1) market
-    feat = get_market_features(target_date, ticker)
-
-    # 2) macro surprise_z (同一組)
-    for var in urls:
-        sel = df_summary[
-            (df_summary['variable']==var) & 
-            (df_summary['release_date']==pd.to_datetime(target_date).date())
-        ]
-        if not sel.empty:
-            actual   = sel.iloc[0]['actual']
-            forecast = sel.iloc[0]['forecast']
-            z = compute_surprise_z(
-                actual, forecast,
-                mean_dict[var], std_dict[var]
-            )
-            feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
-        else:
-            feat.loc[0, f"{var}_surprise_z"] = 0.0
-
-    return feat
+def get_features_for_date(target_date, asset="SPY"):
+    # 1) market features: 針對不同asset選擇正確資料
+    if asset == "SPY":
+        feat = get_market_features(target_date)
+    elif asset == "SSO":
+        feat = get_market_features_sso(target_date)
+    elif asset == "UPRO":
+        feat = get_market_features_upro(target_date)
+    else:
+        raise ValueError("Asset must be 'SPY', 'SSO', or 'UPRO'")
