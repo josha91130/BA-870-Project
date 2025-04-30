@@ -78,19 +78,16 @@ def get_market_features(target_date, ticker, recent_days=10):
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    # 單獨抓 ticker 和 VIX，避免 MultiIndex
     df = yf.download(ticker, start=start, end=end, progress=False)
     df_vix = yf.download("^VIX", start=start, end=end, progress=False)
 
-    # Volume 特徵
     vol = df["Volume"].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
-    lag_vol = logv.shift(1).iloc[-1]
+    lag_vol = logv.shift(1).dropna().iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    # VIX 特徵
     vix_series = df_vix["Close"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).iloc[-1]
+    lag_vix = vix_series.shift(1).dropna().iloc[-1]
 
     wd = dt.weekday()
 
@@ -102,6 +99,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
+
 
 
 
