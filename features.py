@@ -69,34 +69,40 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker, recent_days=10):
+    """
+    Download the selected ticker & VIX up through target_date, then compute:
+      - lag_vol         : yesterday’s log(volume+1)
+      - rolling_std_5d  : 5-day rolling std of log(volume+1)
+      - lag_vix         : yesterday’s VIX close
+      - monday_dummy, wednesday_dummy, friday_dummy
+    """
     dt = pd.to_datetime(target_date)
+    str_date = dt.strftime("%Y-%m-%d")
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
+    # 分開下載 ticker 和 VIX，避免 MultiIndex 問題
+    df_ticker = yf.download(ticker, start=start, end=end, progress=False)
+    df_vix = yf.download("^VIX", start=start, end=end, progress=False)
 
-    # 👉 加入這行檢查資料結構
-    if not isinstance(df, pd.DataFrame) or "Volume" not in df or ticker not in df["Volume"].columns:
-        raise ValueError(f"{ticker} volume data not found in yf.download() result.\nAvailable volume columns: {getattr(df.get('Volume'), 'columns', 'N/A')}")
-
-    # 👉 開始取資料並檢查
-    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    if vol.dropna().empty:
+    # 安全檢查 Volume
+    vol = df_ticker["Volume"].loc[:str_date]
+    if vol.empty:
         raise ValueError(f"{ticker} volume is empty for {target_date}")
 
     logv = np.log(vol + 1)
-    logv_shifted = logv.shift(1)
-    if logv_shifted.dropna().empty:
-        raise ValueError(f"{ticker} shifted log volume is empty for {target_date}")
-
-    lag_vol = logv_shifted.iloc[-1]
+    if logv.shift(1).dropna().empty:
+        raise ValueError(f"{ticker} log(volume+1).shift(1) is empty before {target_date}")
+    lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    if vix_series.shift(1).dropna().empty:
-        raise ValueError(f"VIX shifted close is empty for {target_date}")
+    # VIX 資料安全檢查
+    vix_close = df_vix["Close"].loc[:str_date]
+    if vix_close.shift(1).dropna().empty:
+        raise ValueError(f"VIX close.shift(1) is empty before {target_date}")
+    lag_vix = vix_close.shift(1).iloc[-1]
 
-    lag_vix = vix_series.shift(1).iloc[-1]
+    # weekday dummies
     wd = dt.weekday()
 
     return pd.DataFrame([{
@@ -107,6 +113,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
+
 # def get_market_features(target_date, ticker, recent_days=10):
 #     """
 #     Download {ticker} & VIX up through target_date, then compute:
