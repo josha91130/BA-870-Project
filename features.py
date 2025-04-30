@@ -69,10 +69,10 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker, recent_days=10):
-    import yfinance as yf
+    from datetime import timedelta
     import pandas as pd
     import numpy as np
-    from datetime import timedelta
+    import yfinance as yf
 
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
@@ -80,20 +80,13 @@ def get_market_features(target_date, ticker, recent_days=10):
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    try:
-        vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-        logv = np.log(vol + 1)
-        lag_vol = logv.shift(1).iloc[-1]
-        rolling_std_5d = logv.rolling(5).std().iloc[-1]
-    except:
-        lag_vol = 0.0
-        rolling_std_5d = 0.0
+    vol = df.xs(ticker, axis=1, level=1)["Volume"].loc[:dt.strftime("%Y-%m-%d")]
+    logv = np.log(vol + 1)
+    lag_vol = logv.shift(1).dropna().iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    try:
-        vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-        lag_vix = vix_series.shift(1).iloc[-1]
-    except:
-        lag_vix = 0.0
+    vix_series = df.xs("^VIX", axis=1, level=1)["Close"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).dropna().iloc[-1]
 
     wd = dt.weekday()
 
