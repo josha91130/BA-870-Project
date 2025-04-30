@@ -66,15 +66,17 @@ def get_market_features(target_date, ticker="SPY", recent_days=10):
         start = (dt - timedelta(days=days)).strftime("%Y-%m-%d")
         end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
-        df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
+        spy_df = yf.download(ticker, start=start, end=end, progress=False)
+        vix_df = yf.download("^VIX", start=start, end=end, progress=False)
 
         try:
-            vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+            vol = spy_df["Volume"].loc[:dt]
             logv = np.log(vol + 1)
+
             lag_vol = logv.shift(1).dropna().iloc[-1]
             rolling_std_5d = logv.rolling(5).std().dropna().iloc[-1]
 
-            vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+            vix_series = vix_df["Close"].loc[:dt]
             lag_vix = vix_series.shift(1).dropna().iloc[-1]
 
             wd = dt.weekday()
@@ -86,7 +88,8 @@ def get_market_features(target_date, ticker="SPY", recent_days=10):
                 "wednesday_dummy": int(wd == 2),
                 "friday_dummy": int(wd == 4)
             }])
-        except (IndexError, KeyError):
+        except (IndexError, KeyError) as e:
+            print(f"[Try {i+1}] Error: {e}")
             continue
 
     raise ValueError(f"Not enough data to compute lag_vol for {ticker} on {target_date}")
