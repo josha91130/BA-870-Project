@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from datetime import timedelta
 
-# Load Historical Data
+# ── (A) Load Historical Data ──
 cpi_yoy_final = pd.read_csv('historical/cpi_yoy_final.csv')
 nonfarm_final = pd.read_csv('historical/nonfarm_final.csv')
 ism_final = pd.read_csv('historical/ism_final.csv')
@@ -15,120 +15,109 @@ housing_starts_final = pd.read_csv('historical/housing_starts_final.csv')
 final_data = pd.read_csv('historical/final_data_spy.csv')
 final_data_sso = pd.read_csv('historical/final_data_sso.csv')
 final_data_upro = pd.read_csv('historical/final_data_upro.csv')
-# ── (A) MACRO SCRAPER ──
+
+# ── (B) Macro Data URLs ──
 urls = {
     "CPI": 'https://www.investing.com/economic-calendar/cpi-733',
     "NFP": 'https://www.investing.com/economic-calendar/nonfarm-payrolls-227',
     "ISM": 'https://www.investing.com/economic-calendar/ism-manufacturing-pmi-173',
     "Jobless_Claims": 'https://www.investing.com/economic-calendar/initial-jobless-claims-294',
-    "Housing_Starts": 'https://www.investing.com/economic-calendar/housing-starts-298'
+    "Housing_Starts": 'https://www.investing.com/economic-calendar/housing-starts-149'
 }
 
-def get_actual_forecast_bs4(url):
-    """
-    Scrape the summary box on the calendar page for:
-      - release_date (string),
-      - actual (string),
-      - forecast (string).
-    """
+# ── (C) Macro Data Scraper ──
+def scrape_macro_data():
     headers = {"User-Agent": "Mozilla/5.0"}
-    resp = requests.get(url, headers=headers); resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "lxml")
+    records = []
 
-    # 1) release date
-    date_span = (
-        soup.select_one("p.eventDetails span.date")
-        or soup.select_one("div.eventHeader span.date")
-        or soup.find("span", class_="date")
-    )
-    release_date = date_span.get_text(strip=True) if date_span else None
+    for var, url in urls.items():
+        try:
+            resp = requests.get(url, headers=headers)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "lxml")
 
-    # 2) forecast
-    fc = soup.select_one("div.arial_14.noBold")
-    forecast = fc.get_text(strip=True) if fc else None
+            date_span = (
+                soup.select_one("p.eventDetails span.date")
+                or soup.select_one("div.eventHeader span.date")
+                or soup.find("span", class_="date")
+            )
+            release_date = date_span.get_text(strip=True) if date_span else None
 
-    # 3) actual (greenFont or redFont)
-    ac = soup.select_one("div.arial_14.greenFont, div.arial_14.redFont")
-    actual = ac.get_text(strip=True) if ac else None
+            fc = soup.select_one("div.arial_14.noBold")
+            forecast = fc.get_text(strip=True) if fc else None
 
-    return release_date, actual, forecast
+            ac = soup.select_one("div.arial_14.greenFont, div.arial_14.redFont")
+            actual = ac.get_text(strip=True) if ac else None
 
-# Build a summary DataFrame of the *latest* release for each variable
-records = []
-for var, url in urls.items():
-    rd, ac, fc = get_actual_forecast_bs4(url)
-    records.append({
-        "variable": var,
-        "release_date": rd,
-        "actual": ac,
-        "forecast": fc
-    })
-df_summary = pd.DataFrame(records)
-df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
+            records.append({
+                "variable": var,
+                "release_date": release_date,
+                "forecast": forecast,
+                "actual": actual
+            })
+        except Exception as e:
+            print(f"Failed to fetch {var}: {e}")
+            continue
 
+    df = pd.DataFrame(records)
+    df['release_date'] = pd.to_datetime(df['release_date'], errors="coerce").dt.date
+    return df
 
-# ── (B) MARKET FEATURES ──
+df_summary = scrape_macro_data()
+
+# ── (D) Market Feature Extractor ──
 def get_market_features(target_date, ticker, recent_days=10):
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
     vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
-
-    if len(logv) < 5:
-        raise ValueError(f"Not enough volume data to compute rolling features for {ticker} on {target_date}")
-
-    lag_vol = logv.shift(1).dropna()
-    if lag_vol.empty:
-        raise ValueError(f"No lag_vol found for {ticker} on {target_date}")
-
-    rolling_std_5d = logv.rolling(5).std().dropna()
-    if rolling_std_5d.empty:
-        raise ValueError(f"No rolling std available for {ticker} on {target_date}")
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
     vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix = vix_series.shift(1).dropna()
-    if lag_vix.empty:
-        raise ValueError(f"No lag_vix found for {ticker} on {target_date}")
+    lag_vix = vix_series.shift(1).iloc[-1]
+
+    prices = df["Close"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    log_returns = np.log(prices).diff()
+    lag_return = log_returns.shift(1).iloc[-1]
 
     wd = dt.weekday()
 
     return pd.DataFrame([{
-        "lag_vol": lag_vol.iloc[-1],
-        "rolling_std_5d": rolling_std_5d.iloc[-1],
-        "lag_vix": lag_vix.iloc[-1],
+        "lag_vol": lag_vol,
+        "rolling_std_5d": rolling_std_5d,
+        "lag_vix": lag_vix,
+        "lag_return": lag_return,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
 
-# ── (C) SURPRISE Z CALC ──
+# ── (E) Surprise Z-score Utilities ──
 def clean_macro_value(x):
-    """ '228K'->228.0 (thousands), '2.3%'->2.3, else float(x). """
-    if x is None: return None
-    s = x.replace(",", "").strip()
+    if x is None:
+        return None
     try:
-        if s.endswith("K"):
-            return float(s[:-1])
-        return float(s.rstrip("%"))
-    except ValueError:
+        if x.endswith("K"):
+            return float(x[:-1].replace(",", "")) * 1e3
+        elif x.endswith("%"):
+            return float(x[:-1])
+        else:
+            return float(x.replace(",", ""))
+    except:
         return None
 
 def compute_surprise_z(actual, forecast, mean, std):
-    """
-    z = ((actual - forecast) - mean) / std
-    return None if any value missing.
-    """
     a = clean_macro_value(actual)
     f = clean_macro_value(forecast)
-    if None in (a,f,mean,std):
+    if a is None or f is None:
         return None
     return ((a - f) - mean) / std
 
-# assume you have precomputed:
 mean_dict = {
     "CPI": cpi_yoy_final['CPI_surprise'].mean(),
     "NFP": nonfarm_final['NFP_surprise'].mean(),
@@ -136,6 +125,7 @@ mean_dict = {
     "Jobless_Claims": jobless_claims_final['Jobless_Claims_surprise'].mean(),
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].mean()
 }
+
 std_dict = {
     "CPI": cpi_yoy_final['CPI_surprise'].std(),
     "NFP": nonfarm_final['NFP_surprise'].std(),
@@ -144,24 +134,19 @@ std_dict = {
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].std()
 }
 
-# ── (D) FINAL GET_FEATURES FUNCTION ──
+# ── (F) Final Feature Generator ──
 def get_features_for_date(target_date, ticker):
-    # 1) market
     feat = get_market_features(target_date, ticker)
 
-    # 2) macro surprise_z 
     for var in urls:
         sel = df_summary[
-            (df_summary['variable']==var) & 
-            (df_summary['release_date']==pd.to_datetime(target_date).date())
+            (df_summary['variable'] == var) &
+            (df_summary['release_date'] == pd.to_datetime(target_date).date())
         ]
         if not sel.empty:
-            actual   = sel.iloc[0]['actual']
+            actual = sel.iloc[0]['actual']
             forecast = sel.iloc[0]['forecast']
-            z = compute_surprise_z(
-                actual, forecast,
-                mean_dict[var], std_dict[var]
-            )
+            z = compute_surprise_z(actual, forecast, mean_dict[var], std_dict[var])
             feat.loc[0, f"{var}_surprise_z"] = 0.0 if z is None else z
         else:
             feat.loc[0, f"{var}_surprise_z"] = 0.0
