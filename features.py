@@ -69,28 +69,25 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker, recent_days=10):
-    import pandas as pd
-    import numpy as np
-    import yfinance as yf
-    from datetime import timedelta
-
     dt = pd.to_datetime(target_date)
     start = dt - timedelta(days=recent_days)
     end = dt + timedelta(days=1)
 
-    df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
+    df_ticker = yf.download(ticker, start=start, end=end, progress=False)
+    df_vix = yf.download("^VIX", start=start, end=end, progress=False)
 
-    # 確保 index 是 Timestamp
-    df.index = pd.to_datetime(df.index)
+    if df_ticker.empty or df_vix.empty:
+        raise ValueError(f"{ticker} or VIX data is missing for {target_date}")
 
-    vol_series = df[("Volume", ticker)]
-    logv = np.log(vol_series + 1)
+    df_ticker.index = pd.to_datetime(df_ticker.index)
+    df_vix.index = pd.to_datetime(df_vix.index)
 
+    logv = np.log(df_ticker["Volume"] + 1)
     lag_vol = logv.shift(1).loc[dt] if dt in logv.index else np.nan
     rolling_std_5d = logv.rolling(5).std().loc[dt] if dt in logv.index else np.nan
 
-    vix_series = df[("Close", "^VIX")]
-    lag_vix = vix_series.shift(1).loc[dt] if dt in vix_series.index else np.nan
+    vix_close = df_vix["Close"]
+    lag_vix = vix_close.shift(1).loc[dt] if dt in vix_close.index else np.nan
 
     wd = dt.weekday()
 
@@ -102,6 +99,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
+
 
 
 
