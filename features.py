@@ -55,22 +55,56 @@ df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="
 
 # ── (B) Market Features ──
 def get_market_features(target_date, ticker, recent_days=10):
+    """
+    Downloads market data and computes:
+      - lag_vol (log(volume+1), lagged)
+      - rolling_std_5d
+      - lag_vix (previous day close)
+      - weekday dummies
+    """
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
     end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
+    if df.empty:
+        raise IndexError(f"No market data for {ticker} between {start} and {end}.")
+
+    # --- Extract volume ---
     try:
         vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-        logv = np.log(vol + 1)
-        lag_vol = logv.shift(1).iloc[-1]
-        rolling_std_5d = logv.rolling(5).std().iloc[-1]
+    except KeyError:
+        raise IndexError(f"Volume data for {ticker} not found.")
 
+    if vol.isna().all() or len(vol.dropna()) < 5:
+        raise IndexError(f"Not enough {ticker} volume data before {target_date}")
+
+    logv = np.log(vol + 1)
+
+    # Compute lag_vol safely
+    lag_vol_series = logv.shift(1).dropna()
+    if lag_vol_series.empty:
+        raise IndexError(f"lag_vol is NaN for {ticker} on {target_date}")
+    lag_vol = lag_vol_series.iloc[-1]
+
+    # Compute rolling std safely
+    rolling_std_series = logv.rolling(5).std().dropna()
+    if rolling_std_series.empty:
+        raise IndexError(f"rolling_std_5d cannot be computed for {ticker} on {target_date}")
+    rolling_std_5d = rolling_std_series.iloc[-1]
+
+    # --- Extract lagged VIX close ---
+    try:
         vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-        lag_vix = vix_series.shift(1).iloc[-1]
-    except Exception as e:
-        raise IndexError(f"Not enough {ticker} volume data up to {target_date}\n{logv}")
+    except KeyError:
+        raise IndexError("VIX data not found.")
+    lag_vix_series = vix_series.shift(1).dropna()
+    if lag_vix_series.empty:
+        raise IndexError(f"lag_vix is NaN for {target_date}")
+    lag_vix = lag_vix_series.iloc[-1]
 
+    # --- Weekday dummies ---
     wd = dt.weekday()
     return pd.DataFrame([{
         "lag_vol": lag_vol,
@@ -78,7 +112,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "lag_vix": lag_vix,
         "monday_dummy": int(wd == 0),
         "wednesday_dummy": int(wd == 2),
-        "friday_dummy": int(wd == 4)
+        "friday_dummy": int(wd == 4),
     }])
 
 # ── (C) Macro Surprise Z ──
