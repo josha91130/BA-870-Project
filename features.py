@@ -15,7 +15,7 @@ housing_starts_final = pd.read_csv('historical/housing_starts_final.csv')
 final_data = pd.read_csv('historical/final_data_spy.csv')
 final_data_sso = pd.read_csv('historical/final_data_sso.csv')
 final_data_upro = pd.read_csv('historical/final_data_upro.csv')
-# Scrape Macro Data
+# ── (A) MACRO SCRAPER ──
 urls = {
     "CPI": 'https://www.investing.com/economic-calendar/cpi-733',
     "NFP": 'https://www.investing.com/economic-calendar/nonfarm-payrolls-227',
@@ -67,7 +67,7 @@ df_summary = pd.DataFrame(records)
 df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors="coerce").dt.date
 
 
-# Get Market Feature
+# ── (B) MARKET FEATURES ──
 def get_market_features(target_date, ticker, recent_days=10):
     """
     Download the selected ticker & VIX up through target_date, then compute:
@@ -83,8 +83,8 @@ def get_market_features(target_date, ticker, recent_days=10):
     df = yf.download([ticker,"^VIX"], start=start, end=end, progress=False)
 
     # ticker volume features
-    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-    logv = np.log(vol + 1)
+    vol     = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
+    logv    = np.log(vol + 1)
     lag_vol = logv.shift(1).iloc[-1]
     rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
@@ -103,7 +103,8 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
-# Calaculate Z score for Macro Data Surprises
+
+# ── (C) SURPRISE Z CALC ──
 def clean_macro_value(x):
     """ '228K'->228.0 (thousands), '2.3%'->2.3, else float(x). """
     if x is None: return None
@@ -126,7 +127,7 @@ def compute_surprise_z(actual, forecast, mean, std):
         return None
     return ((a - f) - mean) / std
 
-# Define mean and standard deviation for macro data
+# assume you have precomputed:
 mean_dict = {
     "CPI": cpi_yoy_final['CPI_surprise'].mean(),
     "NFP": nonfarm_final['NFP_surprise'].mean(),
@@ -142,22 +143,15 @@ std_dict = {
     "Housing_Starts": housing_starts_final['Housing_Starts_surprise'].std()
 }
 
-# Get Feature Function
-def get_features_for_date(target_date, asset="SPY"):
+# ── (D) FINAL GET_FEATURES FUNCTION ──
+def get_features_for_date(target_date, ticker):
     # 1) market
-    if asset == "SPY":
-        feat = get_market_features(target_date)
-    elif asset == "SSO":
-        feat = get_market_features_sso(target_date)
-    elif asset == "UPRO":
-        feat = get_market_features_upro(target_date)
-    else:
-        raise ValueError("Asset must be 'SPY', 'SSO', or 'UPRO'")
+    feat = get_market_features(target_date, ticker)
 
-    # 2) macro surprise_z (
+    # 2) macro surprise_z (同一組)
     for var in urls:
         sel = df_summary[
-            (df_summary['variable']==var) &
+            (df_summary['variable']==var) & 
             (df_summary['release_date']==pd.to_datetime(target_date).date())
         ]
         if not sel.empty:
@@ -172,3 +166,7 @@ def get_features_for_date(target_date, asset="SPY"):
             feat.loc[0, f"{var}_surprise_z"] = 0.0
 
     return feat
+# git add, commit, push
+os.system('git add features.py')
+os.system('git commit -m "Add features.py with get_features_for_date function"')
+os.system('git push')
