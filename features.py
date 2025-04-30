@@ -55,19 +55,14 @@ def get_market_features(target_date, ticker, recent_days=10):
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
-    # --- Detect and extract volume properly ---
-    if isinstance(df.columns, pd.MultiIndex):
-        vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
-        vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
-    else:
-        vol = df[f"{ticker} Volume"].loc[:dt.strftime("%Y-%m-%d")]
-        vix_series = df["^VIX Close"].loc[:dt.strftime("%Y-%m-%d")]
-
+    # 確保 MultiIndex 結構下的寫法，這是你原本成功的方式
+    vol = df["Volume"][ticker].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
-    lag_vol = logv.shift(1).iloc[-1] if len(logv) > 1 else np.nan
-    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else np.nan
+    lag_vol = logv.shift(1).iloc[-1]
+    rolling_std_5d = logv.rolling(5).std().iloc[-1]
 
-    lag_vix = vix_series.shift(1).iloc[-1] if len(vix_series) > 1 else np.nan
+    vix_series = df["Close"]["^VIX"].loc[:dt.strftime("%Y-%m-%d")]
+    lag_vix = vix_series.shift(1).iloc[-1]
 
     wd = dt.weekday()
     return pd.DataFrame([{
@@ -78,6 +73,7 @@ def get_market_features(target_date, ticker, recent_days=10):
         "wednesday_dummy": int(wd == 2),
         "friday_dummy": int(wd == 4)
     }])
+
 
 # └─ Macro Z-score
 
