@@ -47,7 +47,7 @@ for var, url in urls.items():
 df_summary = pd.DataFrame(records)
 df_summary['release_date'] = pd.to_datetime(df_summary['release_date'], errors='coerce').dt.date
 
-# ── (B) Market Feature Engineering (Volume & VIX) ──
+# ── (B) Market Feature Engineering ──
 def get_market_features(target_date, ticker='SPY', recent_days=10):
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime('%Y-%m-%d')
@@ -55,19 +55,16 @@ def get_market_features(target_date, ticker='SPY', recent_days=10):
 
     df = yf.download([ticker, '^VIX'], start=start, end=end, progress=False)
 
-    # Volume features
     vol = df['Volume'][ticker]
     vol = vol[vol.index.date <= dt.date()]
     logv = np.log(vol + 1)
     lag_vol = logv.iloc[-2] if len(logv) >= 2 else np.nan
     rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else np.nan
 
-    # VIX lagged close
     vix = df['Close']['^VIX']
     vix = vix[vix.index.date <= dt.date()]
     lag_vix = vix.shift(1).iloc[-1] if len(vix) >= 2 else np.nan
 
-    # Weekday dummies
     wd = dt.weekday()
     return pd.DataFrame([{
         'lag_vol': lag_vol,
