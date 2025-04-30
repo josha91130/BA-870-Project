@@ -74,35 +74,30 @@ def get_market_features(target_date, ticker, recent_days=10):
     import yfinance as yf
     from datetime import timedelta
 
-    # 1) 解析日期范围
+    # 1) 计算目标和区间
     dt = pd.to_datetime(target_date)
     start = dt - timedelta(days=recent_days)
     end   = dt + timedelta(days=1)
 
-    # 2) 下载单个 ticker 的数据
-    df_ticker = yf.download(ticker, start=start, end=end, progress=False)
-    df_ticker.index = pd.to_datetime(df_ticker.index)
+    # 2) 下载并计算 ETF 的成交量特征
+    df_vol = yf.download(ticker, start=start, end=end, progress=False)
+    df_vol.index = pd.to_datetime(df_vol.index)
+    logv = np.log(df_vol["Volume"] + 1)
 
-    # 3) 计算 log(volume+1)
-    vol = df_ticker["Volume"].dropna()
-    logv = np.log(vol + 1)
+    # —— 关键三行 —— 
+    lag_vol        = logv.shift(1).iloc[-1]           # 前一交易日 log(volume+1)
+    rolling_std_5d = logv.rolling(window=5).std().iloc[-1]  # 最近 5 日 std
+    # （这里默认你的 recent_days>=5，所以有足够数据）
 
-    # —— 下面这三行最关键 —— 
-    # 如果数据少于 2 条就补 0，否则直接用倒数第 2 条
-    lag_vol = logv.iloc[-2] if len(logv) >= 2 else 0.0
-    # 最近 5 条（含4/25之前所有可用）滚动标准差
-    rolling_std_5d = logv.iloc[-5:].std() if len(logv) >= 5 else logv.std()
-
-    # 4) 下载单独的 VIX 数据，取前一交易日的 close
+    # 3) 下载并计算 VIX 特征
     df_vix = yf.download("^VIX", start=start, end=end, progress=False)
     df_vix.index = pd.to_datetime(df_vix.index)
-    vix_close = df_vix["Close"].dropna()
-    lag_vix = vix_close.iloc[-2] if len(vix_close) >= 2 else 0.0
+    lag_vix = df_vix["Close"].shift(1).iloc[-1]       # 前一交易日 VIX 收盘
 
-    # 5) 星期 dummy
+    # 4) 星期 Dummy
     wd = dt.weekday()
 
-    # 6) 返回 DataFrame
+    # 5) 返回 DataFrame
     return pd.DataFrame([{
         "lag_vol":        lag_vol,
         "rolling_std_5d": rolling_std_5d,
