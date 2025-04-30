@@ -75,20 +75,20 @@ def get_market_features(target_date, ticker, recent_days=10):
     from datetime import timedelta
 
     dt = pd.to_datetime(target_date)
-    start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    start = dt - timedelta(days=recent_days)
+    end = dt + timedelta(days=1)
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
 
     vol_series = df[("Volume", ticker)]
     logv = np.log(vol_series + 1)
 
-    prev_date = (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+    prev_date = dt - timedelta(days=1)
     lag_vol = logv.loc[prev_date] if prev_date in logv.index else np.nan
-    rolling_std_5d = logv.rolling(5).std().loc[dt.strftime("%Y-%m-%d")] if dt.strftime("%Y-%m-%d") in logv.index else np.nan
+    rolling_std_5d = logv.rolling(5).std().loc[dt] if dt in logv.index else np.nan
 
     vix_series = df[("Close", "^VIX")]
-    lag_vix = vix_series.shift(1).loc[dt.strftime("%Y-%m-%d")] if dt.strftime("%Y-%m-%d") in vix_series.index else np.nan
+    lag_vix = vix_series.shift(1).loc[dt] if dt in vix_series.index else np.nan
 
     wd = dt.weekday()
 
