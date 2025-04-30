@@ -76,24 +76,18 @@ def get_market_features(target_date, ticker, recent_days=10):
 
     dt = pd.to_datetime(target_date)
     start = (dt - timedelta(days=recent_days)).strftime("%Y-%m-%d")
-    end   = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    end = (dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     df = yf.download([ticker, "^VIX"], start=start, end=end, progress=False)
-
-    print("[DEBUG] df.columns:", df.columns)  # 看欄位結構
 
     vol = df[("Volume", ticker)].loc[:dt.strftime("%Y-%m-%d")]
     logv = np.log(vol + 1)
 
-    lag_vol_series = logv.shift(1).dropna()
-    lag_vol = lag_vol_series.iloc[-1] if not lag_vol_series.empty else 0.0
-
-    std_series = logv.rolling(5).std().dropna()
-    rolling_std_5d = std_series.iloc[-1] if not std_series.empty else 0.0
+    lag_vol = logv.shift(1).iloc[-1] if len(logv) > 1 else np.nan
+    rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else np.nan
 
     vix_series = df[("Close", "^VIX")].loc[:dt.strftime("%Y-%m-%d")]
-    lag_vix_series = vix_series.shift(1).dropna()
-    lag_vix = lag_vix_series.iloc[-1] if not lag_vix_series.empty else 0.0
+    lag_vix = vix_series.shift(1).iloc[-1] if len(vix_series) > 1 else np.nan
 
     wd = dt.weekday()
 
