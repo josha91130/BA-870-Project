@@ -53,13 +53,18 @@ def get_market_features(target_date, ticker='SPY', recent_days=10):
     start = (dt - timedelta(days=recent_days)).strftime('%Y-%m-%d')
     end   = (dt + timedelta(days=1)).strftime('%Y-%m-%d')
 
-    df = yf.download([ticker, '^VIX'], start=start, end=end, progress=False)
+    if ticker == "SPY":
+        df = yf.download(["SPY", "^VIX"], start=start, end=end, progress=False)
+        vol = df["Volume"]["SPY"].loc[:dt.strftime('%Y-%m-%d')]
+    elif ticker == "SSO":
+        df = yf.download(["SSO", "^VIX"], start=start, end=end, progress=False)
+        vol = df["Volume"]["SSO"].loc[:dt.strftime('%Y-%m-%d')]
+    elif ticker == "UPRO":
+        df = yf.download(["UPRO", "^VIX"], start=start, end=end, progress=False)
+        vol = df["Volume"]["UPRO"].loc[:dt.strftime('%Y-%m-%d')]
+    else:
+        raise ValueError(f"Ticker {ticker} not supported.")
 
-    # Defensive check
-    if ticker not in df['Volume'].columns:
-        raise ValueError(f"Ticker {ticker} volume not found in downloaded data")
-
-    vol = df['Volume'][ticker].loc[:dt.strftime('%Y-%m-%d')]
     logv = np.log(vol + 1)
     lag_vol = logv.shift(1).iloc[-1] if len(logv) >= 2 else np.nan
     rolling_std_5d = logv.rolling(5).std().iloc[-1] if len(logv) >= 5 else np.nan
