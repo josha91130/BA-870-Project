@@ -4,7 +4,8 @@
 **Contributors:** Zhe Yu Lin, Pei Chi Chu, Ming Hua Tsai
 
 **Website Link:** https://ba-870-project-jerry.streamlit.app/Intro_to_App
----
+
+--- 
 
 Trading volume is a key reflection of market participation and liquidity—both of which are essential for efficient pricing and investment decision-making.
 
