@@ -2,6 +2,7 @@
 # 📘 Predicting Trading Volumes with Market Sentiment and Macroeconomic Indicators
 
 **Contributors:** Zhe Yu Lin, Pei Chi Chu, Ming Hua Tsai
+
 **Website Link:** https://ba-870-project-jerry.streamlit.app/Intro_to_App
 ---
 
